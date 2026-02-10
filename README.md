@@ -75,8 +75,11 @@ Required:
 - `CORS_ORIGIN=https://<your-gh-username>.github.io`
 - `OPENAI_API_KEY=<your-openai-key>`
 
-Optional if you want to protect manual runs with a secret key:
+Required when `REQUIRE_API_KEY=true`:
+
 - `BACKEND_API_KEY=<your-secret-api-key>`
+
+Optional security mode toggle:
 - `REQUIRE_API_KEY=true`
 
 Optional / defaults:
@@ -102,6 +105,17 @@ Database selection:
 ---
 
 ## GitHub Pages setup for `/frontend`
+
+
+### Frontend Railway API URL format (important)
+
+The **Railway API URL must be a full absolute URL including protocol**:
+
+- ✅ `https://radioscrapper-production.up.railway.app`
+- ❌ `radioscrapper-production.up.railway.app`
+- ❌ `/radioscrapper-production.up.railway.app`
+
+If you omit `https://`, GitHub Pages treats it like a relative path and you can get an HTML 404 page when loading runs.
 
 1. In GitHub repo: **Settings → Pages**.
 2. Under **Build and deployment**, select **Deploy from a branch**.
