@@ -13,7 +13,7 @@ Production-ready repo with:
 - Backend records GIANT FM stream audio for **exactly 120 seconds** with required headers and cookie persistence
 - Transcribes with **faster-whisper small** in Railway container
 - Sends transcript to OpenAI for AC/DC decoding JSON
-- Stores runs in SQLite (`/data/db.sqlite`) or Postgres (`DATABASE_URL`)
+- Stores runs in Postgres (`DATABASE_URL`)
 - Scheduled runs at **07:59, 10:59, 15:59 America/Toronto**
 - Frontend has one **RUN** button + runs table + polling + transcript expand/collapse
 
@@ -90,18 +90,15 @@ Optional / defaults:
 - `PORT=3000`
 - `STREAM_URL=https://mybroadcasting.streamb.live/SB00329?_=252731`
 - `DURATION_SECONDS=120`
-- `DATA_DIR=/data`
 - `AUDIO_DIR=/data/audio`
-- `SQLITE_PATH=/data/db.sqlite`
 - `COOKIE_PATH=/data/cookies.txt`
 - `OPENAI_MODEL=gpt-4o-mini`
 - `PYTHON_BIN=python3`
 - `REQUIRE_API_KEY=false`
 
-Database selection:
+Database configuration:
 
-- If `DATABASE_URL` is set, backend uses Postgres.
-- Otherwise it uses SQLite at `/data/db.sqlite`.
+- `DATABASE_URL` is required. Backend uses Postgres only.
 
 6. Deploy service; note the Railway URL (for `API_BASE`).
 
@@ -138,17 +135,7 @@ Commit and push changes; Pages will publish automatically.
 
 ## Data persistence on Railway
 
-Yes — if you want run history to survive deploys/restarts, you need persistent storage in Railway. You have two valid options:
-
-1. **SQLite + Railway Volume**
-   - Add a Railway **Volume** mounted at `/data`.
-   - Keep `SQLITE_PATH=/data/db.sqlite` (default from this repo).
-
-2. **Railway Postgres service**
-   - Add Postgres in Railway and set `DATABASE_URL` on backend service.
-   - Backend will automatically switch from SQLite to Postgres.
-
-Without either a mounted volume or Postgres, run history is ephemeral and can be lost when container instances are replaced.
+Run history is persisted in Postgres. Add a Railway Postgres service and set `DATABASE_URL` on the backend service.
 
 ---
 
