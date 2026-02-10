@@ -15,13 +15,16 @@ const queue = new InProcessQueue();
 app.use(express.json());
 app.use((req, res, next) => {
   const origin = req.header('Origin');
+  const isAllowedOrigin = Boolean(origin && config.corsOrigin && origin === config.corsOrigin);
 
-  if (req.method === 'GET') {
+  if (isAllowedOrigin) {
+    res.header('Access-Control-Allow-Origin', origin as string);
+    res.header('Vary', 'Origin');
+  } else if (req.method === 'GET') {
     res.header('Access-Control-Allow-Origin', '*');
-  } else if (req.method === 'POST' || req.method === 'OPTIONS') {
-    if (origin && config.corsOrigin && origin === config.corsOrigin) {
-      res.header('Access-Control-Allow-Origin', origin);
-    }
+  }
+
+  if (req.method === 'POST' || req.method === 'OPTIONS') {
     res.header('Access-Control-Allow-Headers', 'Content-Type, X-API-KEY');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   }

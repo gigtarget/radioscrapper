@@ -24,9 +24,17 @@ function saveConfig(config) {
   localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
 }
 
+function normalizeApiBase(value) {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return '';
+
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return withProtocol.replace(/\/+$/, '');
+}
+
 function getConfig() {
   return {
-    apiBase: apiBaseInput.value.trim().replace(/\/$/, ''),
+    apiBase: normalizeApiBase(apiBaseInput.value),
     apiKey: apiKeyInput.value.trim()
   };
 }
@@ -39,6 +47,11 @@ function setStatus(message, isError = false) {
 function ensureConfigured() {
   const { apiBase, apiKey } = getConfig();
   if (!apiBase) throw new Error('Set Railway API URL first.');
+  if (!/^https?:\/\//i.test(apiBase)) {
+    throw new Error(
+      'Railway API URL must start with https:// (example: https://radioscrapper-production.up.railway.app)'
+    );
+  }
   if (!apiKey) throw new Error('Set API key first.');
   return { apiBase, apiKey };
 }
@@ -79,9 +92,19 @@ async function apiFetch(path, init) {
 }
 
 async function fetchRuns() {
-  const res = await apiFetch('/runs');
-  const runs = await res.json();
-  runsBody.innerHTML = runs.map(runRow).join('');
+  try {
+    const res = await apiFetch('/runs');
+    const runs = await res.json();
+    runsBody.innerHTML = runs.map(runRow).join('');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('<!DOCTYPE html') || message.includes('<html')) {
+      throw new Error(
+        'Looks like you hit GitHub Pages (HTML 404). Check Railway API URL includes https://'
+      );
+    }
+    throw error;
+  }
 }
 
 async function fetchRun(id) {
@@ -118,6 +141,7 @@ async function pollWithDynamicStatus(id) {
 saveConfigBtn.addEventListener('click', () => {
   const config = getConfig();
   saveConfig(config);
+  apiBaseInput.value = config.apiBase;
   setStatus('Settings saved.');
 });
 
@@ -176,7 +200,7 @@ runsBody.addEventListener('click', (event) => {
 
 (function bootstrap() {
   const config = loadConfig();
-  apiBaseInput.value = config.apiBase;
+  apiBaseInput.value = normalizeApiBase(config.apiBase);
   apiKeyInput.value = config.apiKey;
 
   if (config.apiBase) {
