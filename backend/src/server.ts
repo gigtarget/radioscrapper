@@ -24,11 +24,23 @@ app.use((req, res, next) => {
     }
     res.header('Access-Control-Allow-Headers', 'Content-Type');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, X-API-KEY');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
   }
 
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+
+
+function requireApiKey(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const key = req.header('X-API-KEY');
+  if (!config.backendApiKey || key !== config.backendApiKey) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  next();
+}
 
 async function enqueueRun(source: 'manual' | 'scheduled'): Promise<string> {
   const id = generateRunId();
@@ -42,6 +54,10 @@ app.post('/run', async (_req, res) => {
   try {
     const id = await enqueueRun('manual');
     res.status(202).json({ run_id: id });
+app.post('/run', requireApiKey, async (_req, res) => {
+  try {
+    const id = await enqueueRun('manual');
+    res.status(202).json({ id, status: 'queued' });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to queue run' });
   }

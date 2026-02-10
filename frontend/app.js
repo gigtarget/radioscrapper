@@ -1,5 +1,6 @@
 // Configure before publishing
 const API_BASE = 'https://your-railway-app.up.railway.app';
+const API_KEY = 'set-me';
 
 const runBtn = document.getElementById('run-btn');
 const runsBody = document.getElementById('runs-body');
@@ -54,13 +55,20 @@ runBtn.addEventListener('click', async () => {
   try {
     runBtn.disabled = true;
     statusLine.textContent = 'Submitting run...';
-    const res = await fetch(`${API_BASE}/run`, { method: 'POST' });
+    const res = await fetch(`${API_BASE}/run`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-KEY': API_KEY
+      },
+      body: JSON.stringify({})
+    });
 
     if (!res.ok) throw new Error(await res.text());
     const payload = await res.json();
-    statusLine.textContent = `Run ${payload.run_id} queued. Polling...`;
-    await pollUntilDone(payload.run_id);
-    statusLine.textContent = `Run ${payload.run_id} finished.`;
+    statusLine.textContent = `Run ${payload.id} queued. Polling...`;
+    await pollUntilDone(payload.id);
+    statusLine.textContent = `Run ${payload.id} finished.`;
   } catch (error) {
     statusLine.textContent = error instanceof Error ? error.message : String(error);
   } finally {

@@ -7,7 +7,9 @@ Production-ready repo with:
 
 ## Features
 
+
 - `POST /run` queues a new run (public endpoint)
+- `POST /run` queues a new run (requires `X-API-KEY`)
 - Backend records GIANT FM stream audio for **exactly 240 seconds** with required headers and cookie persistence
 - Transcribes with **faster-whisper small** in Railway container
 - Sends transcript to OpenAI for AC/DC decoding JSON
@@ -21,11 +23,14 @@ Production-ready repo with:
 
 ### `POST /run`
 Public endpoint that enqueues a new run.
+Headers:
+
+- `X-API-KEY: <BACKEND_API_KEY>`
 
 Response:
 
 ```json
-{ "run_id": "<run_id>" }
+{ "id": "<run_id>", "status": "queued" }
 ```
 
 ### `GET /runs`
@@ -58,6 +63,7 @@ Returns:
 
 Required:
 
+- `BACKEND_API_KEY=<your-secret-api-key>`
 - `CORS_ORIGIN=https://<your-gh-username>.github.io`
 - `OPENAI_API_KEY=<your-openai-key>`
 
@@ -91,10 +97,6 @@ Database selection:
 
 Then edit `frontend/app.js`:
 
-```js
-const API_BASE = 'https://<your-railway-service>.up.railway.app';
-```
-
 Commit and push changes; Pages will publish automatically.
 
 ---
@@ -102,7 +104,7 @@ Commit and push changes; Pages will publish automatically.
 ## CORS policy
 
 - `GET` endpoints are open from any origin.
-- `POST /run` is accepted cross-origin from `CORS_ORIGIN`.
+- `POST /run` is only accepted cross-origin from `CORS_ORIGIN` and still requires `X-API-KEY`.
 
 ---
 
