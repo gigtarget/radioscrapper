@@ -1,10 +1,31 @@
-// Configure before publishing
-const API_BASE = 'https://your-railway-app.up.railway.app';
-const API_KEY = 'set-me';
+const API_BASE = 'https://radioscrapper-production.up.railway.app';
 
 const runBtn = document.getElementById('run-btn');
+const refreshBtn = document.getElementById('refresh-btn');
 const runsBody = document.getElementById('runs-body');
 const statusLine = document.getElementById('status-line');
+const statusEvents = document.getElementById('status-events');
+const liveAudio = document.getElementById('live-audio');
+
+let streamUrl = 'https://mybroadcasting.streamb.live/SB00329?_=252731';
+let durationSeconds = 240;
+
+function addStatusEvent(message, isError = false) {
+  const li = document.createElement('li');
+  li.textContent = `${new Date().toLocaleTimeString()} — ${message}`;
+  if (isError) li.classList.add('error');
+
+  for (const node of statusEvents.querySelectorAll('.latest')) {
+    node.classList.remove('latest');
+  }
+
+  li.classList.add('latest');
+  statusEvents.prepend(li);
+}
+
+function setStatus(message) {
+  statusLine.textContent = message;
+}
 
 function truncateWithToggle(text, max = 180) {
   if (!text) return '';
@@ -17,9 +38,9 @@ function truncateWithToggle(text, max = 180) {
 function runRow(run) {
   return `
     <tr data-id="${run.id}">
-      <td>${run.created_at_toronto}</td>
+      <td>${run.created_at_toronto || ''}</td>
       <td>${run.status}</td>
-      <td>${run.duration_seconds}</td>
+      <td>${run.duration_seconds ?? ''}</td>
       <td class="long-text">${truncateWithToggle(run.transcript || '')}</td>
       <td class="long-text">${truncateWithToggle(run.decoded_summary || '')}</td>
       <td>${run.likely_acdc_reference || ''}</td>
@@ -29,48 +50,118 @@ function runRow(run) {
   `;
 }
 
-async function fetchRuns() {
-  const res = await fetch(`${API_BASE}/runs`);
+async function apiFetch(path, init) {
+  const res = await fetch(`${API_BASE}${path}`, init);
   if (!res.ok) throw new Error(await res.text());
+  return res;
+}
+
+async function fetchPublicConfig() {
+  try {
+    const res = await apiFetch('/public-config');
+    const config = await res.json();
+    streamUrl = config.stream_url || streamUrl;
+    durationSeconds = Number(config.duration_seconds || durationSeconds);
+    addStatusEvent('Connected to backend config.');
+  } catch (error) {
+    addStatusEvent(`Failed to load backend config: ${error.message}`, true);
+  }
+}
+
+async function fetchRuns() {
+  const res = await apiFetch('/runs');
   const runs = await res.json();
   runsBody.innerHTML = runs.map(runRow).join('');
 }
 
 async function fetchRun(id) {
-  const res = await fetch(`${API_BASE}/runs/${id}`);
-  if (!res.ok) throw new Error(await res.text());
+  const res = await apiFetch(`/runs/${id}`);
   return res.json();
 }
 
-async function pollUntilDone(id) {
+function setLiveAudioPlaying() {
+  liveAudio.src = streamUrl;
+  liveAudio
+    .play()
+    .then(() => addStatusEvent('Live stream playback started.'))
+    .catch(() => addStatusEvent('Autoplay blocked by browser. Click play on the audio control.'));
+}
+
+function stopLiveAudio() {
+  liveAudio.pause();
+  liveAudio.removeAttribute('src');
+  liveAudio.load();
+}
+
+async function pollWithDynamicStatus(id) {
+  const startedAt = Date.now();
+  let lastSeen = '';
+
   for (;;) {
     const run = await fetchRun(id);
     await fetchRuns();
-    if (run.status === 'done' || run.status === 'failed') return;
-    await new Promise((r) => setTimeout(r, 5000));
+
+    if (run.status !== lastSeen) {
+      lastSeen = run.status;
+      if (run.status === 'queued') addStatusEvent('Run is queued. Waiting for worker...');
+      if (run.status === 'running') addStatusEvent('Recording in progress...');
+      if (run.status === 'done') addStatusEvent('Run finished successfully.');
+      if (run.status === 'failed') addStatusEvent(`Run failed: ${run.error || 'Unknown error'}`, true);
+    }
+
+    if (run.status === 'running') {
+      const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      const remaining = Math.max(0, durationSeconds - elapsed);
+      setStatus(`Recording... ${remaining}s remaining`);
+
+      if (remaining === 0) {
+        addStatusEvent('Recording window finished. Waiting for transcription/decoding...');
+        setStatus('Transcribing and decoding...');
+      }
+    }
+
+    if (run.status === 'done' || run.status === 'failed') {
+      stopLiveAudio();
+      return run;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
   }
 }
+
+refreshBtn.addEventListener('click', async () => {
+  try {
+    await fetchRuns();
+    addStatusEvent('History refreshed.');
+  } catch (error) {
+    addStatusEvent(`Failed to refresh history: ${error.message}`, true);
+  }
+});
 
 runBtn.addEventListener('click', async () => {
   try {
     runBtn.disabled = true;
-    statusLine.textContent = 'Submitting run...';
-    const res = await fetch(`${API_BASE}/run`, {
+    setStatus('Submitting run...');
+    addStatusEvent('Submitting run request...');
+
+    setLiveAudioPlaying();
+
+    const res = await apiFetch('/run', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': API_KEY
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({})
     });
 
-    if (!res.ok) throw new Error(await res.text());
     const payload = await res.json();
-    statusLine.textContent = `Run ${payload.id} queued. Polling...`;
-    await pollUntilDone(payload.id);
-    statusLine.textContent = `Run ${payload.id} finished.`;
+    addStatusEvent(`Run ${payload.id} queued.`);
+    const finalRun = await pollWithDynamicStatus(payload.id);
+    setStatus(`Run ${payload.id}: ${finalRun.status}`);
   } catch (error) {
-    statusLine.textContent = error instanceof Error ? error.message : String(error);
+    stopLiveAudio();
+    setStatus('Run failed.');
+    addStatusEvent(error instanceof Error ? error.message : String(error), true);
   } finally {
     runBtn.disabled = false;
   }
@@ -93,6 +184,15 @@ runsBody.addEventListener('click', (event) => {
   }
 });
 
-fetchRuns().catch((error) => {
-  statusLine.textContent = `Failed to load runs: ${error.message}`;
-});
+(async function bootstrap() {
+  setStatus('Connecting...');
+  await fetchPublicConfig();
+
+  try {
+    await fetchRuns();
+    setStatus('Ready. Click Run to start.');
+  } catch (error) {
+    setStatus('Could not load run history.');
+    addStatusEvent(`Failed to load history: ${error.message}`, true);
+  }
+})();
