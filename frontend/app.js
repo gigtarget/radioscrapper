@@ -65,8 +65,13 @@ function truncateWithToggle(text, max = 180) {
 }
 
 function renderStatus(status) {
-  const cls = ['done', 'failed'].includes(status) ? status : '';
-  return `<span class="pill ${cls}">${status}</span>`;
+  const normalized = (status || '').toLowerCase();
+  let cls = 'pending';
+
+  if (normalized === 'done') cls = 'done';
+  else if (normalized === 'failed') cls = 'failed';
+
+  return `<span class="pill ${cls}">${status || 'pending'}</span>`;
 }
 
 function runRow(run) {
@@ -79,7 +84,7 @@ function runRow(run) {
       <td class="long-text">${truncateWithToggle(run.decoded_summary || '')}</td>
       <td>${run.likely_acdc_reference || ''}</td>
       <td>${run.confidence ?? ''}</td>
-      <td>${run.error || ''}</td>
+      <td class="long-text">${truncateWithToggle(run.error || '')}</td>
     </tr>
   `;
 }
