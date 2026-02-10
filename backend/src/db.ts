@@ -14,7 +14,7 @@ export interface Db {
 }
 
 class SqliteDb implements Db {
-  private db: Database.Database;
+  private db: any;
 
   constructor(private readonly filePath: string) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -72,7 +72,7 @@ class SqliteDb implements Db {
 }
 
 class PostgresDb implements Db {
-  private pool: Pool;
+  private pool: any;
 
   constructor(url: string) {
     this.pool = new Pool({ connectionString: url });
@@ -123,7 +123,7 @@ class PostgresDb implements Db {
 
   async listRuns(limit: number): Promise<RunRecord[]> {
     const result = await this.pool.query('SELECT * FROM runs ORDER BY created_at_utc DESC LIMIT $1', [limit]);
-    return result.rows.map((row) => ({
+    return result.rows.map((row: any) => ({
       ...row,
       created_at_utc: new Date(row.created_at_utc).toISOString()
     }));
