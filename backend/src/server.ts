@@ -22,16 +22,13 @@ app.use((req, res, next) => {
     if (origin && config.corsOrigin && origin === config.corsOrigin) {
       res.header('Access-Control-Allow-Origin', origin);
     }
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, X-API-KEY');
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   }
 
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
-
 
 function requireApiKey(req: express.Request, res: express.Response, next: express.NextFunction): void {
   const key = req.header('X-API-KEY');
@@ -42,6 +39,14 @@ function requireApiKey(req: express.Request, res: express.Response, next: expres
   next();
 }
 
+function maybeRequireApiKey(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  if (!config.requireApiKey) {
+    next();
+    return;
+  }
+  requireApiKey(req, res, next);
+}
+
 async function enqueueRun(source: 'manual' | 'scheduled'): Promise<string> {
   const id = generateRunId();
   await db.createRun(id);
@@ -50,7 +55,24 @@ async function enqueueRun(source: 'manual' | 'scheduled'): Promise<string> {
   return id;
 }
 
-app.post('/run', requireApiKey, async (_req, res) => {
+app.get('/public-config', (_req, res) => {
+  res.json({
+    stream_url: config.streamUrl,
+    duration_seconds: config.durationSeconds,
+    require_api_key: config.requireApiKey
+  });
+});
+
+app.post('/run', maybeRequireApiKey, async (_req, res) => {
+  try {
+    const id = await enqueueRun('manual');
+    res.status(202).json({ id, status: 'queued' });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to queue run' });
+  }
+});
+
+app.post('/run/secure', requireApiKey, async (_req, res) => {
   try {
     const id = await enqueueRun('manual');
     res.status(202).json({ id, status: 'queued' });

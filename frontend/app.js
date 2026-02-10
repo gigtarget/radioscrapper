@@ -89,7 +89,24 @@ async function fetchRun(id) {
   return res.json();
 }
 
-async function pollUntilDone(id) {
+function setLiveAudioPlaying() {
+  liveAudio.src = streamUrl;
+  liveAudio
+    .play()
+    .then(() => addStatusEvent('Live stream playback started.'))
+    .catch(() => addStatusEvent('Autoplay blocked by browser. Click play on the audio control.'));
+}
+
+function stopLiveAudio() {
+  liveAudio.pause();
+  liveAudio.removeAttribute('src');
+  liveAudio.load();
+}
+
+async function pollWithDynamicStatus(id) {
+  const startedAt = Date.now();
+  let lastSeen = '';
+
   for (;;) {
     const run = await fetchRun(id);
     await fetchRuns();

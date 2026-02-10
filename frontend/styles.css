@@ -16,6 +16,8 @@
   box-sizing: border-box;
 }
 
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
   background: radial-gradient(circle at 20% -20%, #1f2f59 0%, var(--bg) 50%);
@@ -131,6 +133,27 @@ input {
 .table-wrap {
   overflow: auto;
 }
+
+.btn.primary:hover:not(:disabled) { background: var(--primary-hover); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+#live-audio { width: 100%; margin-top: 0.5rem; }
+
+.status-card #status-line { margin: 0; color: var(--muted); }
+
+#status-events {
+  margin: 0.75rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text);
+}
+
+#status-events li { color: var(--muted); }
+#status-events li.latest { color: var(--text); }
+#status-events li.error { color: var(--danger); }
+
+.table-wrap { overflow: auto; }
 
 table {
   width: 100%;

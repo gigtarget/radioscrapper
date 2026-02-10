@@ -8,6 +8,7 @@ const dataDir = process.env.DATA_DIR || '/data';
 export const config = {
   port: Number(process.env.PORT || 3000),
   backendApiKey: process.env.BACKEND_API_KEY || '',
+  requireApiKey: process.env.REQUIRE_API_KEY === 'true',
   corsOrigin: process.env.CORS_ORIGIN || '',
   durationSeconds: Number(process.env.DURATION_SECONDS || 240),
   streamUrl: process.env.STREAM_URL || 'https://mybroadcasting.streamb.live/SB00329?_=252731',

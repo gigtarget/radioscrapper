@@ -8,8 +8,8 @@ Production-ready repo with:
 ## Features
 
 
-- `POST /run` queues a new run (public endpoint)
-- `POST /run` queues a new run (requires `X-API-KEY`)
+- `POST /run` queues a new run (public by default; key optional via `REQUIRE_API_KEY=true`)
+- `POST /run/secure` queues a new run (always requires `X-API-KEY`)
 - Backend records GIANT FM stream audio for **exactly 240 seconds** with required headers and cookie persistence
 - Transcribes with **faster-whisper small** in Railway container
 - Sends transcript to OpenAI for AC/DC decoding JSON
@@ -22,8 +22,7 @@ Production-ready repo with:
 ## Backend API
 
 ### `POST /run`
-Public endpoint that enqueues a new run.
-Headers:
+Queues a new run. If `REQUIRE_API_KEY=true`, include header:
 
 - `X-API-KEY: <BACKEND_API_KEY>`
 
@@ -31,6 +30,16 @@ Response:
 
 ```json
 { "id": "<run_id>", "status": "queued" }
+```
+
+### `POST /run/secure`
+Always requires `X-API-KEY`.
+
+### `GET /public-config`
+Returns frontend-safe config:
+
+```json
+{ "stream_url": "<radio_stream>", "duration_seconds": 240, "require_api_key": false }
 ```
 
 ### `GET /runs`
@@ -63,9 +72,12 @@ Returns:
 
 Required:
 
-- `BACKEND_API_KEY=<your-secret-api-key>`
 - `CORS_ORIGIN=https://<your-gh-username>.github.io`
 - `OPENAI_API_KEY=<your-openai-key>`
+
+Optional if you want to protect manual runs with a secret key:
+- `BACKEND_API_KEY=<your-secret-api-key>`
+- `REQUIRE_API_KEY=true`
 
 Optional / defaults:
 
@@ -78,6 +90,7 @@ Optional / defaults:
 - `COOKIE_PATH=/data/cookies.txt`
 - `OPENAI_MODEL=gpt-4o-mini`
 - `PYTHON_BIN=python3`
+- `REQUIRE_API_KEY=false`
 
 Database selection:
 
@@ -125,7 +138,8 @@ Without either a mounted volume or Postgres, run history is ephemeral and can be
 ## CORS policy
 
 - `GET` endpoints are open from any origin.
-- `POST /run` is only accepted cross-origin from `CORS_ORIGIN` and still requires `X-API-KEY`.
+- `POST /run` is only accepted cross-origin from `CORS_ORIGIN` and requires `X-API-KEY` **only** when `REQUIRE_API_KEY=true`.
+- `POST /run/secure` always requires `X-API-KEY`.
 
 ---
 
