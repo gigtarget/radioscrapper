@@ -7,6 +7,8 @@ Production-ready repo with:
 
 ## Features
 
+
+- `POST /run` queues a new run (public endpoint)
 - `POST /run` queues a new run (requires `X-API-KEY`)
 - Backend records GIANT FM stream audio for **exactly 240 seconds** with required headers and cookie persistence
 - Transcribes with **faster-whisper small** in Railway container
@@ -20,6 +22,7 @@ Production-ready repo with:
 ## Backend API
 
 ### `POST /run`
+Public endpoint that enqueues a new run.
 Headers:
 
 - `X-API-KEY: <BACKEND_API_KEY>`
@@ -93,11 +96,6 @@ Database selection:
 4. Save.
 
 Then edit `frontend/app.js`:
-
-```js
-const API_BASE = 'https://<your-railway-service>.up.railway.app';
-const API_KEY = '<same-value-as-BACKEND_API_KEY>';
-```
 
 Commit and push changes; Pages will publish automatically.
 

@@ -22,6 +22,8 @@ app.use((req, res, next) => {
     if (origin && config.corsOrigin && origin === config.corsOrigin) {
       res.header('Access-Control-Allow-Origin', origin);
     }
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, X-API-KEY');
     res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
   }
@@ -29,6 +31,7 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+
 
 function requireApiKey(req: express.Request, res: express.Response, next: express.NextFunction): void {
   const key = req.header('X-API-KEY');
@@ -47,6 +50,10 @@ async function enqueueRun(source: 'manual' | 'scheduled'): Promise<string> {
   return id;
 }
 
+app.post('/run', async (_req, res) => {
+  try {
+    const id = await enqueueRun('manual');
+    res.status(202).json({ run_id: id });
 app.post('/run', requireApiKey, async (_req, res) => {
   try {
     const id = await enqueueRun('manual');
