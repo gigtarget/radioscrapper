@@ -50,10 +50,6 @@ async function enqueueRun(source: 'manual' | 'scheduled'): Promise<string> {
   return id;
 }
 
-app.post('/run', async (_req, res) => {
-  try {
-    const id = await enqueueRun('manual');
-    res.status(202).json({ run_id: id });
 app.post('/run', requireApiKey, async (_req, res) => {
   try {
     const id = await enqueueRun('manual');
