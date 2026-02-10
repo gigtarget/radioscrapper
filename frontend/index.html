@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GIANT FM Decoder</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>GIANT FM Decoder</h1>
+      <button id="run-btn">RUN</button>
+      <p id="status-line"></p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Time (Toronto)</th>
+            <th>Status</th>
+            <th>Duration (s)</th>
+            <th>Transcript</th>
+            <th>Decoded Summary</th>
+            <th>Likely AC/DC Ref</th>
+            <th>Confidence</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody id="runs-body"></tbody>
+      </table>
+    </main>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
