@@ -8,29 +8,36 @@
   </head>
   <body>
     <main class="container">
-      <header>
+      <header class="hero">
         <h1>GIANT FM AC/DC Decoder</h1>
-        <p>Click run to start recording, hear the live stream, and track progress in real time.</p>
+        <p>Trigger a run, track status in real time, and keep a history of decoded results.</p>
       </header>
 
-      <section class="card controls">
-        <button id="run-btn" class="btn primary">Run</button>
-        <button id="refresh-btn" class="btn">Refresh history</button>
+      <section class="card" aria-labelledby="config-title">
+        <h2 id="config-title">Connection Settings</h2>
+        <p class="muted">Saved in your browser so you only set it once per device.</p>
+        <div class="config-grid">
+          <label>
+            Railway API URL
+            <input id="api-base" type="url" placeholder="https://your-app.up.railway.app" />
+          </label>
+          <label>
+            API key
+            <input id="api-key" type="password" placeholder="BACKEND_API_KEY" />
+          </label>
+        </div>
+        <div class="actions-row">
+          <button id="save-config-btn" class="btn secondary">Save settings</button>
+          <button id="run-btn" class="btn primary">Run Decoder</button>
+        </div>
+        <p id="status-line" class="status-line"></p>
       </section>
 
-      <section class="card" aria-live="polite">
-        <h2>Live Recording</h2>
-        <audio id="live-audio" controls autoplay></audio>
-      </section>
-
-      <section class="card status-card">
-        <h2>Real-time Status</h2>
-        <p id="status-line">Waiting for run...</p>
-        <ul id="status-events"></ul>
-      </section>
-
-      <section class="card">
-        <h2>Run History</h2>
+      <section class="card" aria-labelledby="history-title">
+        <div class="history-head">
+          <h2 id="history-title">Run History</h2>
+          <button id="refresh-btn" class="btn ghost">Refresh</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>

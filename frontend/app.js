@@ -1,30 +1,46 @@
-const API_BASE = 'https://radioscrapper-production.up.railway.app';
+const CONFIG_STORAGE_KEY = 'radio-scrapper-ui-config';
 
 const runBtn = document.getElementById('run-btn');
+const saveConfigBtn = document.getElementById('save-config-btn');
 const refreshBtn = document.getElementById('refresh-btn');
 const runsBody = document.getElementById('runs-body');
 const statusLine = document.getElementById('status-line');
-const statusEvents = document.getElementById('status-events');
-const liveAudio = document.getElementById('live-audio');
+const apiBaseInput = document.getElementById('api-base');
+const apiKeyInput = document.getElementById('api-key');
 
-let streamUrl = 'https://mybroadcasting.streamb.live/SB00329?_=252731';
-let durationSeconds = 240;
+function loadConfig() {
+  const defaults = { apiBase: '', apiKey: '' };
+  const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
+  if (!saved) return defaults;
 
-function addStatusEvent(message, isError = false) {
-  const li = document.createElement('li');
-  li.textContent = `${new Date().toLocaleTimeString()} — ${message}`;
-  if (isError) li.classList.add('error');
-
-  for (const node of statusEvents.querySelectorAll('.latest')) {
-    node.classList.remove('latest');
+  try {
+    return { ...defaults, ...JSON.parse(saved) };
+  } catch {
+    return defaults;
   }
-
-  li.classList.add('latest');
-  statusEvents.prepend(li);
 }
 
-function setStatus(message) {
+function saveConfig(config) {
+  localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+}
+
+function getConfig() {
+  return {
+    apiBase: apiBaseInput.value.trim().replace(/\/$/, ''),
+    apiKey: apiKeyInput.value.trim()
+  };
+}
+
+function setStatus(message, isError = false) {
   statusLine.textContent = message;
+  statusLine.classList.toggle('error', isError);
+}
+
+function ensureConfigured() {
+  const { apiBase, apiKey } = getConfig();
+  if (!apiBase) throw new Error('Set Railway API URL first.');
+  if (!apiKey) throw new Error('Set API key first.');
+  return { apiBase, apiKey };
 }
 
 function truncateWithToggle(text, max = 180) {
@@ -35,11 +51,16 @@ function truncateWithToggle(text, max = 180) {
   return `<span class="truncated" data-full="${encodeURIComponent(text)}">${short}</span><button class="expand">expand</button>`;
 }
 
+function renderStatus(status) {
+  const cls = ['done', 'failed'].includes(status) ? status : '';
+  return `<span class="pill ${cls}">${status}</span>`;
+}
+
 function runRow(run) {
   return `
     <tr data-id="${run.id}">
       <td>${run.created_at_toronto || ''}</td>
-      <td>${run.status}</td>
+      <td>${renderStatus(run.status)}</td>
       <td>${run.duration_seconds ?? ''}</td>
       <td class="long-text">${truncateWithToggle(run.transcript || '')}</td>
       <td class="long-text">${truncateWithToggle(run.decoded_summary || '')}</td>
@@ -51,21 +72,10 @@ function runRow(run) {
 }
 
 async function apiFetch(path, init) {
-  const res = await fetch(`${API_BASE}${path}`, init);
+  const { apiBase } = ensureConfigured();
+  const res = await fetch(`${apiBase}${path}`, init);
   if (!res.ok) throw new Error(await res.text());
   return res;
-}
-
-async function fetchPublicConfig() {
-  try {
-    const res = await apiFetch('/public-config');
-    const config = await res.json();
-    streamUrl = config.stream_url || streamUrl;
-    durationSeconds = Number(config.duration_seconds || durationSeconds);
-    addStatusEvent('Connected to backend config.');
-  } catch (error) {
-    addStatusEvent(`Failed to load backend config: ${error.message}`, true);
-  }
 }
 
 async function fetchRuns() {
@@ -100,68 +110,48 @@ async function pollWithDynamicStatus(id) {
   for (;;) {
     const run = await fetchRun(id);
     await fetchRuns();
-
-    if (run.status !== lastSeen) {
-      lastSeen = run.status;
-      if (run.status === 'queued') addStatusEvent('Run is queued. Waiting for worker...');
-      if (run.status === 'running') addStatusEvent('Recording in progress...');
-      if (run.status === 'done') addStatusEvent('Run finished successfully.');
-      if (run.status === 'failed') addStatusEvent(`Run failed: ${run.error || 'Unknown error'}`, true);
-    }
-
-    if (run.status === 'running') {
-      const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-      const remaining = Math.max(0, durationSeconds - elapsed);
-      setStatus(`Recording... ${remaining}s remaining`);
-
-      if (remaining === 0) {
-        addStatusEvent('Recording window finished. Waiting for transcription/decoding...');
-        setStatus('Transcribing and decoding...');
-      }
-    }
-
-    if (run.status === 'done' || run.status === 'failed') {
-      stopLiveAudio();
-      return run;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    if (run.status === 'done' || run.status === 'failed') return run;
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
 }
+
+saveConfigBtn.addEventListener('click', () => {
+  const config = getConfig();
+  saveConfig(config);
+  setStatus('Settings saved.');
+});
 
 refreshBtn.addEventListener('click', async () => {
   try {
     await fetchRuns();
-    addStatusEvent('History refreshed.');
+    setStatus('History refreshed.');
   } catch (error) {
-    addStatusEvent(`Failed to refresh history: ${error.message}`, true);
+    setStatus(`Failed to refresh: ${error.message}`, true);
   }
 });
 
 runBtn.addEventListener('click', async () => {
   try {
     runBtn.disabled = true;
+    const { apiKey } = ensureConfigured();
+    saveConfig(getConfig());
+
     setStatus('Submitting run...');
-    addStatusEvent('Submitting run request...');
-
-    setLiveAudioPlaying();
-
     const res = await apiFetch('/run', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-API-KEY': apiKey
       },
       body: JSON.stringify({})
     });
 
     const payload = await res.json();
-    addStatusEvent(`Run ${payload.id} queued.`);
-    const finalRun = await pollWithDynamicStatus(payload.id);
-    setStatus(`Run ${payload.id}: ${finalRun.status}`);
+    setStatus(`Run ${payload.id} queued. Polling...`);
+    const finalRun = await pollUntilDone(payload.id);
+    setStatus(`Run ${payload.id} finished with status: ${finalRun.status}.`);
   } catch (error) {
-    stopLiveAudio();
-    setStatus('Run failed.');
-    addStatusEvent(error instanceof Error ? error.message : String(error), true);
+    setStatus(error instanceof Error ? error.message : String(error), true);
   } finally {
     runBtn.disabled = false;
   }
@@ -184,15 +174,16 @@ runsBody.addEventListener('click', (event) => {
   }
 });
 
-(async function bootstrap() {
-  setStatus('Connecting...');
-  await fetchPublicConfig();
+(function bootstrap() {
+  const config = loadConfig();
+  apiBaseInput.value = config.apiBase;
+  apiKeyInput.value = config.apiKey;
 
-  try {
-    await fetchRuns();
-    setStatus('Ready. Click Run to start.');
-  } catch (error) {
-    setStatus('Could not load run history.');
-    addStatusEvent(`Failed to load history: ${error.message}`, true);
+  if (config.apiBase) {
+    fetchRuns()
+      .then(() => setStatus('Ready.'))
+      .catch((error) => setStatus(`Failed to load runs: ${error.message}`, true));
+  } else {
+    setStatus('Enter Railway API URL and API key, then click Save settings.');
   }
 })();

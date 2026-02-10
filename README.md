@@ -108,10 +108,11 @@ Database selection:
 3. Branch: `main`, folder: `/frontend` (recommended) **or** `/ (root)` (works because root `index.html` redirects to `/frontend/`).
 4. Save.
 
-The frontend is preconfigured to call your Railway URL directly and only shows a **Run** button + live status/audio.
+Open the published page and set these values in **Connection Settings**:
+- Railway API URL (`https://<your-service>.up.railway.app`)
+- API key (`BACKEND_API_KEY`)
 
-Set the URL once in `frontend/app.js`:
-- `const API_BASE = "https://<your-service>.up.railway.app"`
+Click **Save settings** once; values are kept in browser local storage.
 
 Commit and push changes; Pages will publish automatically.
 
