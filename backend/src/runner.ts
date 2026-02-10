@@ -128,11 +128,11 @@ async function decodeTranscript(transcript: string): Promise<DecodeResult> {
       {
         role: 'system',
         content:
-          'You analyze radio transcripts and infer AC/DC-related meaning. Return strict JSON with keys decoded_summary, likely_acdc_reference, confidence_0_to_1 (0..1).'
+          'You decode scrambled words from radio speech-to-text input. Do not summarize. Use the transcript directly, find scrambled words, decode them, and infer the AC/DC band-related answer. Return strict JSON with keys decoded_summary, likely_acdc_reference, confidence_0_to_1 (0..1).'
       },
       {
         role: 'user',
-        content: transcript
+        content: `Get the scrambled words from this input, try to decode them, and provide the AC/DC band-related answer. Input: ${transcript}`
       }
     ],
     response_format: {
