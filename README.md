@@ -45,6 +45,9 @@ Returns frontend-safe config:
 ### `GET /runs`
 Returns latest 100 runs.
 
+### `GET /storage-info`
+Returns the active persistence mode and storage path hints so you can verify if history should survive redeploys.
+
 ### `GET /runs/:id`
 Returns:
 
