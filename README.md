@@ -92,12 +92,33 @@ Database selection:
 
 1. In GitHub repo: **Settings → Pages**.
 2. Under **Build and deployment**, select **Deploy from a branch**.
-3. Branch: `main`, folder: `/frontend`.
+3. Branch: `main`, folder: `/frontend` (recommended) **or** `/ (root)` (works because root `index.html` redirects to `/frontend/`).
 4. Save.
 
-Then edit `frontend/app.js`:
+Open the published page and set these values in **Connection Settings**:
+- Railway API URL (`https://<your-service>.up.railway.app`)
+- API key (`BACKEND_API_KEY`)
+
+Click **Save settings** once; values are kept in browser local storage.
 
 Commit and push changes; Pages will publish automatically.
+
+---
+
+
+## Data persistence on Railway
+
+Yes — if you want run history to survive deploys/restarts, you need persistent storage in Railway. You have two valid options:
+
+1. **SQLite + Railway Volume**
+   - Add a Railway **Volume** mounted at `/data`.
+   - Keep `SQLITE_PATH=/data/db.sqlite` (default from this repo).
+
+2. **Railway Postgres service**
+   - Add Postgres in Railway and set `DATABASE_URL` on backend service.
+   - Backend will automatically switch from SQLite to Postgres.
+
+Without either a mounted volume or Postgres, run history is ephemeral and can be lost when container instances are replaced.
 
 ---
 

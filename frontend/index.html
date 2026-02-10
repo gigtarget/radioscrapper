@@ -8,25 +8,54 @@
   </head>
   <body>
     <main class="container">
-      <h1>GIANT FM Decoder</h1>
-      <button id="run-btn">RUN</button>
-      <p id="status-line"></p>
+      <header class="hero">
+        <h1>GIANT FM AC/DC Decoder</h1>
+        <p>Trigger a run, track status in real time, and keep a history of decoded results.</p>
+      </header>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Time (Toronto)</th>
-            <th>Status</th>
-            <th>Duration (s)</th>
-            <th>Transcript</th>
-            <th>Decoded Summary</th>
-            <th>Likely AC/DC Ref</th>
-            <th>Confidence</th>
-            <th>Error</th>
-          </tr>
-        </thead>
-        <tbody id="runs-body"></tbody>
-      </table>
+      <section class="card" aria-labelledby="config-title">
+        <h2 id="config-title">Connection Settings</h2>
+        <p class="muted">Saved in your browser so you only set it once per device.</p>
+        <div class="config-grid">
+          <label>
+            Railway API URL
+            <input id="api-base" type="url" placeholder="https://your-app.up.railway.app" />
+          </label>
+          <label>
+            API key
+            <input id="api-key" type="password" placeholder="BACKEND_API_KEY" />
+          </label>
+        </div>
+        <div class="actions-row">
+          <button id="save-config-btn" class="btn secondary">Save settings</button>
+          <button id="run-btn" class="btn primary">Run Decoder</button>
+        </div>
+        <p id="status-line" class="status-line"></p>
+      </section>
+
+      <section class="card" aria-labelledby="history-title">
+        <div class="history-head">
+          <h2 id="history-title">Run History</h2>
+          <button id="refresh-btn" class="btn ghost">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time (Toronto)</th>
+                <th>Status</th>
+                <th>Duration (s)</th>
+                <th>Transcript</th>
+                <th>Decoded Summary</th>
+                <th>Likely AC/DC Ref</th>
+                <th>Confidence</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody id="runs-body"></tbody>
+          </table>
+        </div>
+      </section>
     </main>
     <script src="app.js" type="module"></script>
   </body>
