@@ -101,7 +101,7 @@ async function main(): Promise<void> {
   await db.init();
 
   cron.schedule(
-    '0 8,11,16 * * *',
+    '59 7,10,15 * * *',
     () => {
       void enqueueRun('scheduled');
     },

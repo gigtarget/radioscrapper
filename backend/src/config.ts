@@ -10,7 +10,7 @@ export const config = {
   backendApiKey: process.env.BACKEND_API_KEY || '',
   requireApiKey: process.env.REQUIRE_API_KEY === 'true',
   corsOrigin: process.env.CORS_ORIGIN || '',
-  durationSeconds: Number(process.env.DURATION_SECONDS || 240),
+  durationSeconds: Number(process.env.DURATION_SECONDS || 120),
   streamUrl: process.env.STREAM_URL || 'https://mybroadcasting.streamb.live/SB00329?_=252731',
   databaseUrl: process.env.DATABASE_URL,
   sqlitePath: process.env.SQLITE_PATH || path.join(dataDir, 'db.sqlite'),

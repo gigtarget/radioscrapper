@@ -10,11 +10,11 @@ Production-ready repo with:
 
 - `POST /run` queues a new run (public by default; key optional via `REQUIRE_API_KEY=true`)
 - `POST /run/secure` queues a new run (always requires `X-API-KEY`)
-- Backend records GIANT FM stream audio for **exactly 240 seconds** with required headers and cookie persistence
+- Backend records GIANT FM stream audio for **exactly 120 seconds** with required headers and cookie persistence
 - Transcribes with **faster-whisper small** in Railway container
 - Sends transcript to OpenAI for AC/DC decoding JSON
 - Stores runs in SQLite (`/data/db.sqlite`) or Postgres (`DATABASE_URL`)
-- Scheduled runs at **08:00, 12:00, 14:00 America/Toronto**
+- Scheduled runs at **07:59, 10:59, 15:59 America/Toronto**
 - Frontend has one **RUN** button + runs table + polling + transcript expand/collapse
 
 ---
@@ -39,7 +39,7 @@ Always requires `X-API-KEY`.
 Returns frontend-safe config:
 
 ```json
-{ "stream_url": "<radio_stream>", "duration_seconds": 240, "require_api_key": false }
+{ "stream_url": "<radio_stream>", "duration_seconds": 120, "require_api_key": false }
 ```
 
 ### `GET /runs`
@@ -86,7 +86,7 @@ Optional / defaults:
 
 - `PORT=3000`
 - `STREAM_URL=https://mybroadcasting.streamb.live/SB00329?_=252731`
-- `DURATION_SECONDS=240`
+- `DURATION_SECONDS=120`
 - `DATA_DIR=/data`
 - `AUDIO_DIR=/data/audio`
 - `SQLITE_PATH=/data/db.sqlite`
