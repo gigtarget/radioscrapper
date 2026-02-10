@@ -12,6 +12,31 @@ const app = express();
 const db = createDb();
 const queue = new InProcessQueue();
 
+function getStorageInfo(): {
+  mode: 'postgres' | 'sqlite';
+  sqlite_path: string | null;
+  data_dir: string | null;
+  persistence_note: string;
+} {
+  if (config.databaseUrl) {
+    return {
+      mode: 'postgres',
+      sqlite_path: null,
+      data_dir: null,
+      persistence_note:
+        'Postgres is persistent as long as your Railway Postgres service/database remains attached.'
+    };
+  }
+
+  return {
+    mode: 'sqlite',
+    sqlite_path: config.sqlitePath,
+    data_dir: process.env.DATA_DIR || '/data',
+    persistence_note:
+      'SQLite only survives restarts if this path is on a mounted persistent Railway Volume (commonly /data).'
+  };
+}
+
 app.use(express.json());
 app.use((req, res, next) => {
   const origin = req.header('Origin');
@@ -66,6 +91,10 @@ app.get('/public-config', (_req, res) => {
   });
 });
 
+app.get('/storage-info', (_req, res) => {
+  res.json(getStorageInfo());
+});
+
 app.post('/run', maybeRequireApiKey, async (_req, res) => {
   try {
     const id = await enqueueRun('manual');
@@ -99,6 +128,18 @@ app.get('/runs/:id', async (req, res) => {
 async function main(): Promise<void> {
   fs.mkdirSync(config.audioDir, { recursive: true });
   await db.init();
+
+  const storage = getStorageInfo();
+  if (storage.mode === 'postgres') {
+    console.log('[storage] Using Postgres (DATABASE_URL is set).');
+  } else {
+    console.log(`[storage] Using SQLite at ${storage.sqlite_path}.`);
+    if (!config.sqlitePath.startsWith('/data/')) {
+      console.warn(
+        '[storage] WARNING: SQLITE_PATH is not under /data. On Railway this is usually ephemeral unless you mounted a Volume there.'
+      );
+    }
+  }
 
   cron.schedule(
     '59 7,10,15 * * *',
