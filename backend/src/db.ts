@@ -1,6 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import Database from 'better-sqlite3';
 import { Pool } from 'pg';
 import { config } from './config.js';
 import type { RunRecord } from './types.js';
@@ -13,69 +10,14 @@ export interface Db {
   listRuns(limit: number): Promise<RunRecord[]>;
 }
 
-class SqliteDb implements Db {
-  private db: any;
-
-  constructor(private readonly filePath: string) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    this.db = new Database(filePath);
-  }
-
-  async init(): Promise<void> {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS runs (
-        id TEXT PRIMARY KEY,
-        created_at_utc TEXT NOT NULL,
-        status TEXT NOT NULL,
-        duration_seconds INTEGER NOT NULL,
-        transcript TEXT,
-        decoded_summary TEXT,
-        likely_acdc_reference TEXT,
-        confidence REAL,
-        error TEXT
-      );
-    `);
-  }
-
-  async createRun(id: string): Promise<void> {
-    const stmt = this.db.prepare(`
-      INSERT INTO runs (id, created_at_utc, status, duration_seconds)
-      VALUES (@id, @created_at_utc, @status, @duration_seconds)
-    `);
-    stmt.run({
-      id,
-      created_at_utc: new Date().toISOString(),
-      status: 'queued',
-      duration_seconds: config.durationSeconds
-    });
-  }
-
-  async updateRun(id: string, patch: Partial<RunRecord>): Promise<void> {
-    const entries = Object.entries(patch).filter(([, v]) => v !== undefined);
-    if (!entries.length) return;
-
-    const setSql = entries.map(([k]) => `${k} = ?`).join(', ');
-    const values = entries.map(([, v]) => v);
-    this.db.prepare(`UPDATE runs SET ${setSql} WHERE id = ?`).run(...values, id);
-  }
-
-  async getRun(id: string): Promise<RunRecord | null> {
-    const row = this.db.prepare('SELECT * FROM runs WHERE id = ?').get(id) as RunRecord | undefined;
-    return row ?? null;
-  }
-
-  async listRuns(limit: number): Promise<RunRecord[]> {
-    return this.db
-      .prepare('SELECT * FROM runs ORDER BY created_at_utc DESC LIMIT ?')
-      .all(limit) as RunRecord[];
-  }
-}
-
 class PostgresDb implements Db {
   private pool: any;
 
   constructor(url: string) {
-    this.pool = new Pool({ connectionString: url });
+    this.pool = new Pool({
+      connectionString: url,
+      ssl: { rejectUnauthorized: false }
+    });
   }
 
   async init(): Promise<void> {
@@ -131,6 +73,5 @@ class PostgresDb implements Db {
 }
 
 export function createDb(): Db {
-  if (config.databaseUrl) return new PostgresDb(config.databaseUrl);
-  return new SqliteDb(config.sqlitePath);
+  return new PostgresDb(config.databaseUrl);
 }
