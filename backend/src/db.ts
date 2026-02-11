@@ -14,14 +14,17 @@ class PostgresDb implements Db {
   private pool: any;
 
   constructor(url: string) {
+    const useSsl = !url.includes('localhost') && !url.includes('127.0.0.1');
+
     this.pool = new Pool({
       connectionString: url,
-      ssl: { rejectUnauthorized: false }
+      ssl: useSsl ? { rejectUnauthorized: false } : false
     });
   }
 
   async init(): Promise<void> {
-    await this.pool.query(`
+    try {
+      await this.pool.query(`
       CREATE TABLE IF NOT EXISTS runs (
         id TEXT PRIMARY KEY,
         created_at_utc TIMESTAMPTZ NOT NULL,
@@ -34,6 +37,17 @@ class PostgresDb implements Db {
         error TEXT
       );
     `);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error ? String((error as { code?: unknown }).code) : '';
+      if (code === '28P01' || /auth[_\s-]?failed/i.test(message) || /password authentication failed/i.test(message)) {
+        console.error(
+          '[db] Postgres auth failed. On Railway, set DATABASE_URL to the Postgres TCP proxy value (DATABASE_PUBLIC_URL).'
+        );
+      }
+      throw error;
+    }
   }
 
   async createRun(id: string): Promise<void> {

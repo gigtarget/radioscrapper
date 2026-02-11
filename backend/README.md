@@ -1,10 +1,13 @@
 # Backend deployment notes
 
-## Railway environment setup
+## Railway Variables
 
-- `DATABASE_URL` is required by the backend and must point to a reachable PostgreSQL connection string.
-- On Railway, prefer setting `DATABASE_URL` to the Postgres TCP proxy value (`DATABASE_PUBLIC_URL`) or a Railway reference variable that resolves to it.
-- Using the public URL helps avoid internal hostname `ENOTFOUND` issues in mis-wired deployments: https://station.railway.com/questions/error-connecting-to-postgre-sql-getaddri-5c52974d?utm_source=chatgpt.com
+- Set `DATABASE_URL` to the Railway Postgres TCP proxy value (`DATABASE_PUBLIC_URL`).
+- Do **not** use unresolved placeholders like `${{Postgres.DATABASE_URL}}` in Railway variables.
+- `RECORD_SECONDS` is supported (preferred over `DURATION_SECONDS`).
+- `COOKIE_JAR_PATH` is supported (falls back to `COOKIE_PATH`).
+- `DECODE_MODEL` is supported (falls back to `OPENAI_MODEL`).
+- Optional: set `REQUIRE_API_KEY=true` to require `X-API-KEY` for `POST /run`.
 
 ## Healthcheck behavior
 
