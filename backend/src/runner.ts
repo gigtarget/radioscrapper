@@ -133,6 +133,7 @@ async function decodeTranscript(transcript: string): Promise<DecodeResult> {
 
   const payload = {
     model: config.openAiModel,
+    ...(config.decodeMaxTokens ? { max_tokens: config.decodeMaxTokens } : {}),
     messages: [
       {
         role: 'system',

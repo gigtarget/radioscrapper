@@ -43,7 +43,7 @@ class PostgresDb implements Db {
         typeof error === 'object' && error !== null && 'code' in error ? String((error as { code?: unknown }).code) : '';
       if (code === '28P01' || /auth[_\s-]?failed/i.test(message) || /password authentication failed/i.test(message)) {
         console.error(
-          '[db] Postgres auth failed. On Railway, set DATABASE_URL to the Postgres TCP proxy value (DATABASE_PUBLIC_URL).'
+          '[db] Postgres auth failed (28P01): auth failed; confirm DATABASE_URL points to the correct Railway Postgres and password matches. If using references, ensure Railway resolved them.'
         );
       }
       throw error;

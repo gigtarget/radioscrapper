@@ -138,6 +138,8 @@ async function pollUntilDone(id) {
   }
 }
 
+const pollWithDynamicStatus = pollUntilDone;
+
 saveConfigBtn.addEventListener('click', () => {
   const config = getConfig();
   saveConfig(config);
@@ -175,7 +177,8 @@ runBtn.addEventListener('click', async () => {
 
     const payload = await res.json();
     setStatus(`Run ${payload.id} queued. Polling...`);
-    const finalRun = await pollUntilDone(payload.id);
+    const finalRun = await pollWithDynamicStatus(payload.id);
+    await fetchRuns();
     setStatus(`Run ${payload.id} finished with status: ${finalRun.status}.`);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : String(error), true);

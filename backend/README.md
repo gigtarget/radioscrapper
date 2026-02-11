@@ -2,12 +2,14 @@
 
 ## Railway Variables
 
-- Set `DATABASE_URL` to the Railway Postgres TCP proxy value (`DATABASE_PUBLIC_URL`).
-- Do **not** use unresolved placeholders like `${{Postgres.DATABASE_URL}}` in Railway variables.
+- Prefer Railway-injected `DATABASE_URL` for internal service-to-service access.
+- Use `DATABASE_PUBLIC_URL` only when a public/TCP URL is required.
+- Fallback DB URL lookup order is: `DATABASE_URL`, `DATABASE_PUBLIC_URL`, then `POSTGRES_URL`.
+- Railway supports variable references such as `${{Service.VAR}}`, but if logs show an unresolved literal string at runtime, fix the variable source so Railway resolves it before app start.
+- Set `REQUIRE_API_KEY=true` to protect `POST /run` with `X-API-KEY`.
 - `RECORD_SECONDS` is supported (preferred over `DURATION_SECONDS`).
 - `COOKIE_JAR_PATH` is supported (falls back to `COOKIE_PATH`).
 - `DECODE_MODEL` is supported (falls back to `OPENAI_MODEL`).
-- Optional: set `REQUIRE_API_KEY=true` to require `X-API-KEY` for `POST /run`.
 
 ## Healthcheck behavior
 
