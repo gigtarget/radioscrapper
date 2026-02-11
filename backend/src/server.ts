@@ -600,11 +600,10 @@ function renderPublicPage(): string {
       }
 
       function smsAction(run){
-        const sourceText = String(run.decoded_summary || run.transcript || '').trim();
+        const sourceText = String(run.likely_acdc_reference || '').trim();
         if (!sourceText) return '<span class="smsPlaceholder">No result</span>';
 
-        const body = 'AI Result: ' + sourceText;
-        const href = 'sms:' + SMS_TARGET_NUMBER + '?body=' + encodeURIComponent(body);
+        const href = 'sms:' + SMS_TARGET_NUMBER + '?body=' + encodeURIComponent(sourceText);
         return '<a class="smsBtn" href="' + escapeHtml(href) + '">SMS Result</a>';
       }
 
