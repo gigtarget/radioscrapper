@@ -377,27 +377,16 @@ function renderPublicPage(): string {
         white-space: nowrap;
       }
       .smsBtn:hover{ background: rgba(255,255,255,.08); }
-      .smsPlaceholder{ color: var(--muted2); font-size: 12px; }
-
-      .conf{
-        display:grid;
-        gap:6px;
-        min-width: 120px;
+      .smsBtn.ready{
+        border-color: rgba(53,224,138,.45);
+        background: rgba(53,224,138,.18);
+        color: #D9FFE9;
       }
-      .bar{
-        height: 8px;
-        border-radius: 999px;
-        background: rgba(255,255,255,.06);
-        overflow:hidden;
-        border: 1px solid rgba(140,160,255,.14);
+      .smsBtn.missing{
+        border-color: rgba(255,92,122,.45);
+        background: rgba(255,92,122,.16);
+        color: #FFD9E1;
       }
-      .bar > i{
-        display:block;
-        height:100%;
-        width:0%;
-        background: linear-gradient(90deg, rgba(124,92,255,.95), rgba(53,208,255,.95));
-      }
-      .conf small{ color: rgba(167,179,214,.92); }
 
       /* Mobile cards */
       .cards{
@@ -467,7 +456,6 @@ function renderPublicPage(): string {
           </div>
         </div>
 
-        <div class="chip" title="This page cannot trigger runs.">Read-only</div>
       </div>
 
       <section class="card" aria-label="Public history">
@@ -511,7 +499,6 @@ function renderPublicPage(): string {
                 <th>Transcript</th>
                 <th>Decoded Summary</th>
                 <th>Likely AC/DC Ref</th>
-                <th>Confidence</th>
                 <th>SMS</th>
                 <th>Error</th>
               </tr>
@@ -569,17 +556,6 @@ function renderPublicPage(): string {
         return '<span class="statusPill ' + cls + '"><span class="sDot"></span>' + escapeHtml(label) + '</span>';
       }
 
-      function confCell(c){
-        const n = Number(c);
-        const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n * 100))) : null;
-        const label = pct === null ? '—' : (pct + '%');
-        const w = pct === null ? 0 : pct;
-        return '<div class="conf">' +
-          '<div class="bar" aria-label="Confidence"><i style="width:' + w + '%"></i></div>' +
-          '<small>' + escapeHtml(label) + '</small>' +
-        '</div>';
-      }
-
       function detailsCell(title, value, emptyLabel){
         const text = String(value || '');
         if (!text.trim()) return '<span class="muted">' + escapeHtml(emptyLabel || '') + '</span>';
@@ -601,10 +577,12 @@ function renderPublicPage(): string {
 
       function smsAction(run){
         const sourceText = String(run.likely_acdc_reference || '').trim();
-        if (!sourceText) return '<span class="smsPlaceholder">No result</span>';
+        if (!sourceText) {
+          return '<span class="smsBtn missing" aria-disabled="true">SMS Result</span>';
+        }
 
         const href = 'sms:' + SMS_TARGET_NUMBER + '?body=' + encodeURIComponent(sourceText);
-        return '<a class="smsBtn" href="' + escapeHtml(href) + '">SMS Result</a>';
+        return '<a class="smsBtn ready" href="' + escapeHtml(href) + '">SMS Result</a>';
       }
 
       function row(run){
@@ -615,7 +593,6 @@ function renderPublicPage(): string {
           '<td>' + detailsCell('Transcript', run.transcript, '—') + '</td>' +
           '<td>' + detailsCell('Decoded Summary', run.decoded_summary, '—') + '</td>' +
           '<td>' + escapeHtml(run.likely_acdc_reference || '') + '</td>' +
-          '<td>' + confCell(run.confidence) + '</td>' +
           '<td>' + smsAction(run) + '</td>' +
           '<td>' + detailsCell('Error', run.error, '—') + '</td>' +
         '</tr>';
@@ -631,7 +608,6 @@ function renderPublicPage(): string {
               '<div class="time mono">' + escapeHtml(run.created_at_toronto || '') + '</div>' +
               '<div style="margin-top:8px;">' + statusPill(run.status) + '</div>' +
             '</div>' +
-            '<div style="min-width:120px;">' + confCell(run.confidence) + '</div>' +
           '</div>' +
 
           '<div class="grid2">' +
