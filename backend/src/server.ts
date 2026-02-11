@@ -362,6 +362,23 @@ function renderPublicPage(): string {
       }
       .copy:hover{ background: rgba(255,255,255,.06); }
 
+      .smsBtn{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        border-radius: 10px;
+        padding: 6px 10px;
+        border: 1px solid rgba(140,160,255,.18);
+        background: rgba(255,255,255,.04);
+        color: var(--text);
+        text-decoration:none;
+        font-size: 12px;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+      .smsBtn:hover{ background: rgba(255,255,255,.08); }
+      .smsPlaceholder{ color: var(--muted2); font-size: 12px; }
+
       .conf{
         display:grid;
         gap:6px;
@@ -495,6 +512,7 @@ function renderPublicPage(): string {
                 <th>Decoded Summary</th>
                 <th>Likely AC/DC Ref</th>
                 <th>Confidence</th>
+                <th>SMS</th>
                 <th>Error</th>
               </tr>
             </thead>
@@ -518,6 +536,7 @@ function renderPublicPage(): string {
         auto: false,
         timer: null,
       };
+      const SMS_TARGET_NUMBER = '9050505056';
 
       const rowsEl = $("rows");
       const cardsEl = $("cards");
@@ -580,6 +599,15 @@ function renderPublicPage(): string {
         '</details>';
       }
 
+      function smsAction(run){
+        const sourceText = String(run.decoded_summary || run.transcript || '').trim();
+        if (!sourceText) return '<span class="smsPlaceholder">No result</span>';
+
+        const body = 'AI Result: ' + sourceText;
+        const href = 'sms:' + SMS_TARGET_NUMBER + '?body=' + encodeURIComponent(body);
+        return '<a class="smsBtn" href="' + escapeHtml(href) + '">SMS Result</a>';
+      }
+
       function row(run){
         return '<tr>' +
           '<td class="mono">' + escapeHtml(run.created_at_toronto || '') + '</td>' +
@@ -589,6 +617,7 @@ function renderPublicPage(): string {
           '<td>' + detailsCell('Decoded Summary', run.decoded_summary, '—') + '</td>' +
           '<td>' + escapeHtml(run.likely_acdc_reference || '') + '</td>' +
           '<td>' + confCell(run.confidence) + '</td>' +
+          '<td>' + smsAction(run) + '</td>' +
           '<td>' + detailsCell('Error', run.error, '—') + '</td>' +
         '</tr>';
       }
@@ -613,6 +642,7 @@ function renderPublicPage(): string {
 
           '<div style="margin-top:10px;">' + detailsCell('Transcript', run.transcript, 'Transcript: —') + '</div>' +
           '<div style="margin-top:10px;">' + detailsCell('Decoded Summary', run.decoded_summary, 'Decoded: —') + '</div>' +
+          '<div style="margin-top:10px;">' + smsAction(run) + '</div>' +
           '<div style="margin-top:10px;">' + detailsCell('Error', run.error, 'Error: —') + '</div>' +
         '</div>';
       }
