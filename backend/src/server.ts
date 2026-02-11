@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import express from 'express';
 import cron from 'node-cron';
 import { z } from 'zod';
-import { config } from './config.js';
+import { config, redactConnectionString } from './config.js';
 import { createDb } from './db.js';
 import { InProcessQueue } from './jobQueue.js';
 import { executeRun } from './runner.js';
@@ -25,6 +25,115 @@ function getStorageInfo(): {
     mode: 'postgres',
     persistence_note: 'Postgres is persistent as long as your Railway Postgres service/database remains attached.'
   };
+}
+
+function renderPublicPage(): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GIANT FM Decoder - Public History</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; }
+      .muted { color: #666; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+      th { background: #f6f6f6; }
+      .pill { border-radius: 999px; padding: 2px 10px; display: inline-block; font-size: 12px; }
+      .pill.pending { background: #f2f2f2; }
+      .pill.done { background: #d8f6dd; }
+      .pill.failed { background: #f9dddd; }
+      .expand { margin-left: 8px; border: none; background: transparent; color: #0068d7; cursor: pointer; }
+      .long-text { min-width: 220px; max-width: 420px; }
+    </style>
+  </head>
+  <body>
+    <h1>GIANT FM AC/DC Decoder - Public History</h1>
+    <p class="muted">This page is read-only.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Time (Toronto)</th>
+          <th>Status</th>
+          <th>Duration (s)</th>
+          <th>Transcript</th>
+          <th>Decoded Summary</th>
+          <th>Likely AC/DC Ref</th>
+          <th>Confidence</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody id="runs-body"></tbody>
+    </table>
+    <script>
+      const runsBody = document.getElementById('runs-body');
+
+      function truncateWithToggle(text, max = 180) {
+        if (!text) return '';
+        if (text.length <= max) return text;
+        const short = text.slice(0, max) + '…';
+        return '<span class="truncated" data-full="' + encodeURIComponent(text) + '">' + short + '</span><button class="expand">expand</button>';
+      }
+
+      function renderStatus(status) {
+        const normalized = (status || '').toLowerCase();
+        let cls = 'pending';
+        if (normalized === 'done') cls = 'done';
+        else if (normalized === 'failed') cls = 'failed';
+        return '<span class="pill ' + cls + '">' + (status || 'pending') + '</span>';
+      }
+
+      function runRow(run) {
+        return '<tr>' +
+          '<td>' + (run.created_at_toronto || '') + '</td>' +
+          '<td>' + renderStatus(run.status) + '</td>' +
+          '<td>' + (run.duration_seconds ?? '') + '</td>' +
+          '<td class="long-text">' + truncateWithToggle(run.transcript || '') + '</td>' +
+          '<td class="long-text">' + truncateWithToggle(run.decoded_summary || '') + '</td>' +
+          '<td>' + (run.likely_acdc_reference || '') + '</td>' +
+          '<td>' + (run.confidence ?? '') + '</td>' +
+          '<td class="long-text">' + truncateWithToggle(run.error || '') + '</td>' +
+        '</tr>';
+      }
+
+      async function fetchRuns() {
+        const response = await fetch('/runs');
+        if (!response.ok) throw new Error(await response.text());
+        const runs = await response.json();
+        runsBody.innerHTML = runs.map(runRow).join('');
+      }
+
+      runsBody.addEventListener('click', (event) => {
+        const btn = event.target.closest('.expand');
+        if (!btn) return;
+
+        const span = btn.previousElementSibling;
+        if (!span || !span.classList.contains('truncated')) return;
+
+        const full = decodeURIComponent(span.dataset.full || '');
+        if (btn.textContent === 'expand') {
+          span.textContent = full;
+          btn.textContent = 'collapse';
+        } else {
+          span.textContent = full.slice(0, 180) + '…';
+          btn.textContent = 'expand';
+        }
+      });
+
+      async function refreshLoop() {
+        try {
+          await fetchRuns();
+        } catch (error) {
+          console.error('Failed to fetch runs', error);
+        }
+      }
+
+      refreshLoop();
+      setInterval(refreshLoop, 10000);
+    </script>
+  </body>
+</html>`;
 }
 
 app.use(express.json());
@@ -85,17 +194,22 @@ async function initDbWithRetry(): Promise<void> {
       await db.init();
       dbReady = true;
       dbError = undefined;
-      console.log('[storage] Using Postgres (DATABASE_URL is required).');
+      console.log('[storage] Using Postgres.');
       return;
     } catch (error) {
       dbError = error instanceof Error ? error.message : 'Unknown DB initialization error';
       const delay = DB_RETRY_DELAYS_MS[retryCount] ?? 30000;
       retryCount += 1;
       console.error(`[db] init failed, retrying in ${Math.round(delay / 1000)}s`, error);
+      console.error('[db] Verify DATABASE_URL points at Railway Postgres TCP proxy (DATABASE_PUBLIC_URL).');
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
+
+app.get('/public', (_req, res) => {
+  res.type('html').send(renderPublicPage());
+});
 
 app.get('/public-config', (_req, res) => {
   res.json({
@@ -155,6 +269,9 @@ app.get('/runs/:id', async (req, res) => {
 
 async function main(): Promise<void> {
   fs.mkdirSync(config.audioDir, { recursive: true });
+
+  console.log(`[config] DB URL source: ${config.databaseUrlSource} (${redactConnectionString(config.databaseUrl)})`);
+  console.log(`[config] CORS_ORIGIN: ${config.corsOrigin || '(not set)'}`);
 
   cron.schedule(
     '59 7,10,15 * * *',

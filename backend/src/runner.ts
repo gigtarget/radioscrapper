@@ -5,12 +5,20 @@ import { config } from './config.js';
 import type { Db } from './db.js';
 import type { DecodeResult } from './types.js';
 
-const STREAM_HEADERS = {
-  'User-Agent':
+const DEFAULT_STREAM_HEADERS = {
+  userAgent:
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
-  Referer: 'https://www.niagaradailynews.ca/',
-  Accept: '*/*'
+  referer: 'https://www.niagaradailynews.ca/',
+  accept: '*/*'
 };
+
+function getStreamHeaders(): Record<string, string> {
+  return {
+    'User-Agent': config.streamUserAgent || DEFAULT_STREAM_HEADERS.userAgent,
+    Referer: config.streamReferer || DEFAULT_STREAM_HEADERS.referer,
+    Accept: config.streamAccept || DEFAULT_STREAM_HEADERS.accept
+  };
+}
 
 function loadCookieString(): string {
   try {
@@ -30,7 +38,7 @@ async function refreshCookieJar(): Promise<string> {
   const response = await fetch(config.streamUrl, {
     method: 'GET',
     headers: {
-      ...STREAM_HEADERS,
+      ...getStreamHeaders(),
       ...(existing ? { Cookie: existing } : {})
     }
   });
@@ -66,10 +74,11 @@ function runCommand(cmd: string, args: string[]): Promise<void> {
 async function recordAudio(audioPath: string): Promise<void> {
   fs.mkdirSync(path.dirname(audioPath), { recursive: true });
   const cookie = await refreshCookieJar();
+  const headers = getStreamHeaders();
   const headerLines = [
-    `User-Agent: ${STREAM_HEADERS['User-Agent']}`,
-    `Referer: ${STREAM_HEADERS.Referer}`,
-    `Accept: ${STREAM_HEADERS.Accept}`,
+    `User-Agent: ${headers['User-Agent']}`,
+    `Referer: ${headers.Referer}`,
+    `Accept: ${headers.Accept}`,
     ...(cookie ? [`Cookie: ${cookie}`] : [])
   ];
 

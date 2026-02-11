@@ -7,6 +7,7 @@ const runsBody = document.getElementById('runs-body');
 const statusLine = document.getElementById('status-line');
 const apiBaseInput = document.getElementById('api-base');
 const apiKeyInput = document.getElementById('api-key');
+const publicLink = document.getElementById('public-link');
 
 function loadConfig() {
   const defaults = { apiBase: '', apiKey: '' };
@@ -37,6 +38,19 @@ function getConfig() {
     apiBase: normalizeApiBase(apiBaseInput.value),
     apiKey: apiKeyInput.value.trim()
   };
+}
+
+function updatePublicLink(apiBase) {
+  if (!publicLink) return;
+  if (apiBase) {
+    publicLink.href = `${apiBase}/public`;
+    publicLink.textContent = 'Public history page (no run button)';
+    publicLink.style.display = 'inline';
+  } else {
+    publicLink.removeAttribute('href');
+    publicLink.textContent = 'Public history page (no run button)';
+    publicLink.style.display = 'none';
+  }
 }
 
 function setStatus(message, isError = false) {
@@ -104,9 +118,7 @@ async function fetchRuns() {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('<!DOCTYPE html') || message.includes('<html')) {
-      throw new Error(
-        'Looks like you hit GitHub Pages (HTML 404). Check Railway API URL includes https://'
-      );
+      throw new Error('Looks like you hit GitHub Pages (HTML 404). Check Railway API URL includes https://');
     }
     throw error;
   }
@@ -117,24 +129,7 @@ async function fetchRun(id) {
   return res.json();
 }
 
-function setLiveAudioPlaying() {
-  liveAudio.src = streamUrl;
-  liveAudio
-    .play()
-    .then(() => addStatusEvent('Live stream playback started.'))
-    .catch(() => addStatusEvent('Autoplay blocked by browser. Click play on the audio control.'));
-}
-
-function stopLiveAudio() {
-  liveAudio.pause();
-  liveAudio.removeAttribute('src');
-  liveAudio.load();
-}
-
-async function pollWithDynamicStatus(id) {
-  const startedAt = Date.now();
-  let lastSeen = '';
-
+async function pollUntilDone(id) {
   for (;;) {
     const run = await fetchRun(id);
     await fetchRuns();
@@ -147,6 +142,7 @@ saveConfigBtn.addEventListener('click', () => {
   const config = getConfig();
   saveConfig(config);
   apiBaseInput.value = config.apiBase;
+  updatePublicLink(config.apiBase);
   setStatus('Settings saved.');
 });
 
@@ -163,7 +159,9 @@ runBtn.addEventListener('click', async () => {
   try {
     runBtn.disabled = true;
     const { apiKey } = ensureConfigured();
-    saveConfig(getConfig());
+    const currentConfig = getConfig();
+    saveConfig(currentConfig);
+    updatePublicLink(currentConfig.apiBase);
 
     setStatus('Submitting run...');
     const res = await apiFetch('/run', {
@@ -205,10 +203,12 @@ runsBody.addEventListener('click', (event) => {
 
 (function bootstrap() {
   const config = loadConfig();
-  apiBaseInput.value = normalizeApiBase(config.apiBase);
+  const normalizedApiBase = normalizeApiBase(config.apiBase);
+  apiBaseInput.value = normalizedApiBase;
   apiKeyInput.value = config.apiKey;
+  updatePublicLink(normalizedApiBase);
 
-  if (config.apiBase) {
+  if (normalizedApiBase) {
     fetchRuns()
       .then(() => setStatus('Ready.'))
       .catch((error) => setStatus(`Failed to load runs: ${error.message}`, true));
