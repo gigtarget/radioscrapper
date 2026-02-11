@@ -223,30 +223,6 @@ function renderPublicPage(): string {
       }
       .switch.on .knob{ transform: translateX(20px); background: #EAF0FF; }
 
-      .meta{
-        display:flex;
-        justify-content:space-between;
-        gap:12px;
-        flex-wrap:wrap;
-        padding: 12px 16px 14px;
-        background: rgba(0,0,0,.06);
-        border-bottom: 1px solid rgba(140,160,255,.14);
-      }
-      .stats{
-        display:flex;
-        gap:10px;
-        flex-wrap:wrap;
-      }
-      .stat{
-        padding: 8px 10px;
-        border-radius: 14px;
-        border: 1px solid rgba(140,160,255,.14);
-        background: rgba(255,255,255,.03);
-        min-width: 120px;
-      }
-      .stat b{ display:block; font-size: 14px; }
-      .stat span{ display:block; color: var(--muted2); font-size: 12px; margin-top: 2px; }
-
       .rightmeta{
         display:flex;
         align-items:center;
@@ -437,8 +413,6 @@ function renderPublicPage(): string {
         .top{ padding: 14px 12px 0; }
         table{ display:none; }
         .cards{ display:block; }
-        .meta{ padding: 12px; }
-        .stat{ min-width: 46%; }
         .grid2{ grid-template-columns: 1fr; }
       }
     </style>
@@ -477,15 +451,6 @@ function renderPublicPage(): string {
           <div class="rightmeta">
             <span class="pill">Updated: <span id="updated" class="mono" style="margin-left:8px">—</span></span>
             <span id="msg" class="muted">—</span>
-          </div>
-        </div>
-
-        <div class="meta">
-          <div class="stats">
-            <div class="stat"><b id="st_total">0</b><span>Total runs</span></div>
-            <div class="stat"><b id="st_done">0</b><span>Done</span></div>
-            <div class="stat"><b id="st_failed">0</b><span>Failed</span></div>
-            <div class="stat"><b id="st_pending">0</b><span>Pending</span></div>
           </div>
         </div>
 
@@ -631,17 +596,6 @@ function renderPublicPage(): string {
 
         rowsEl.innerHTML = runs.map(row).join('');
         cardsEl.innerHTML = runs.map(card).join('');
-
-        // stats
-        const all = state.runs;
-        const done = all.filter(r => normalizeStatus(r.status) === 'done').length;
-        const failed = all.filter(r => normalizeStatus(r.status) === 'failed').length;
-        const pending = all.length - done - failed;
-
-        $("st_total").textContent = String(all.length);
-        $("st_done").textContent = String(done);
-        $("st_failed").textContent = String(failed);
-        $("st_pending").textContent = String(pending);
 
         // attach copy handlers
         document.querySelectorAll('[data-copy]').forEach(btn => {
