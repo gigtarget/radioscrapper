@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { RECORDING_SETTINGS } from './recording_settings.js';
 
 dotenv.config();
 
@@ -67,7 +68,7 @@ export const config = {
   backendApiKey: process.env.BACKEND_API_KEY || '',
   requireApiKey: process.env.REQUIRE_API_KEY === 'true',
   corsOrigin: process.env.CORS_ORIGIN || '',
-  durationSeconds: parseNumber(process.env.RECORD_SECONDS ?? process.env.DURATION_SECONDS, 120),
+  durationSeconds: parseNumber(process.env.RECORD_SECONDS ?? process.env.DURATION_SECONDS, RECORDING_SETTINGS.recordSeconds),
   streamUrl: process.env.STREAM_URL || 'https://mybroadcasting.streamb.live/SB00329?_=252731',
   streamUserAgent: process.env.STREAM_USER_AGENT || '',
   streamReferer: process.env.STREAM_REFERER || '',
