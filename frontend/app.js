@@ -82,10 +82,10 @@ function escapeHtml(value) {
 
 
 function buildSmsLink(run) {
-  const sourceText = (run.decoded_summary || run.transcript || '').trim();
+  const sourceText = (run.likely_acdc_reference || run.decoded_summary || run.transcript || '').trim();
   if (!sourceText) return '';
 
-  const message = `AI Result: ${sourceText}`;
+  const message = `Likely AC/DC Reference: ${sourceText}`;
   return `sms:${SMS_TARGET_NUMBER}?&body=${encodeURIComponent(message)}`;
 }
 
