@@ -109,8 +109,7 @@ input {
 }
 
 input:focus-visible,
-.btn:focus-visible,
-.expand:focus-visible {
+.btn:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--primary) 70%, white 30%);
   outline-offset: 2px;
 }
@@ -217,20 +216,12 @@ tr:last-child td {
 }
 
 .long-text {
-  max-width: 290px;
+  max-width: 360px;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.expand {
-  margin-top: 0.32rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  font-size: 0.8rem;
-  padding: 0.18rem 0.42rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-height: 260px;
+  overflow-y: auto;
 }
 
 .pill {
