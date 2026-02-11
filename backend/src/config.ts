@@ -25,8 +25,22 @@ function pickDatabaseUrl(): { source: DbUrlSource; value: string } {
     }
   }
 
+  const unresolvedSources = candidates
+    .filter(({ value }) => {
+      if (!value) return false;
+      const trimmed = value.trim();
+      return trimmed.includes('${{') || trimmed.startsWith('${');
+    })
+    .map(({ source }) => source);
+
+  if (unresolvedSources.length) {
+    throw new Error(
+      `Missing required DB URL: ${unresolvedSources.join(', ')} contains unresolved variable references. Accepted vars: DATABASE_URL, DATABASE_PUBLIC_URL, POSTGRES_URL.`
+    );
+  }
+
   throw new Error(
-    'Missing required DATABASE_URL environment variable. Configure your Postgres connection string before starting the backend. Also accepted: DATABASE_PUBLIC_URL.'
+    'Missing required DB URL. Set one of: DATABASE_URL, DATABASE_PUBLIC_URL, POSTGRES_URL.'
   );
 }
 

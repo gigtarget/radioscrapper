@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import express from 'express';
 import cron from 'node-cron';
 import { z } from 'zod';
@@ -13,6 +14,9 @@ const db = createDb();
 const queue = new InProcessQueue();
 const PORT = Number(process.env.PORT || 3000);
 const DB_RETRY_DELAYS_MS = [2000, 5000, 10000, 20000];
+const frontendDir = path.resolve(process.cwd(), '..', 'frontend');
+const frontendIndexPath = path.join(frontendDir, 'index.html');
+
 
 let dbReady = false;
 let dbError: string | undefined;
@@ -201,11 +205,26 @@ async function initDbWithRetry(): Promise<void> {
       const delay = DB_RETRY_DELAYS_MS[retryCount] ?? 30000;
       retryCount += 1;
       console.error(`[db] init failed, retrying in ${Math.round(delay / 1000)}s`, error);
-      console.error('[db] Verify DATABASE_URL points at Railway Postgres TCP proxy (DATABASE_PUBLIC_URL).');
+      console.error('[db] Verify one DB URL var is set and resolved: DATABASE_URL, DATABASE_PUBLIC_URL, or POSTGRES_URL.');
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
+
+app.get('/', (_req, res) => {
+  res.redirect('/public');
+});
+
+app.use('/admin', express.static(frontendDir));
+
+app.get('/admin', (_req, res) => {
+  res.sendFile(frontendIndexPath);
+});
+
+app.get('/admin/*', (req, res, next) => {
+  if (req.path.includes('.')) return next();
+  res.sendFile(frontendIndexPath);
+});
 
 app.get('/public', (_req, res) => {
   res.type('html').send(renderPublicPage());
