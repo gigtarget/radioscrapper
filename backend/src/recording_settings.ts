@@ -20,5 +20,5 @@ export const RECORDING_SETTINGS = {
   timezone: process.env.TZ || 'America/Toronto',
   recordSeconds: resolveRecordSeconds(),
   // daily schedule in 24h local time
-  runTimes: ['09:58', '11:59', '15:59', '23:38']
+  runTimes: ['08:00', '11:00', '16:00', '23:38']
 };
