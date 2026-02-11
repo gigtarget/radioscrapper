@@ -8,7 +8,7 @@ const statusLine = document.getElementById('status-line');
 const apiBaseInput = document.getElementById('api-base');
 const apiKeyInput = document.getElementById('api-key');
 const publicLink = document.getElementById('public-link');
-const SMS_TARGET_NUMBER = '9050505056';
+const SMS_TARGET_NUMBER = '9057326917';
 
 function loadConfig() {
   const defaults = { apiBase: '', apiKey: '' };
