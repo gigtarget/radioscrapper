@@ -536,7 +536,7 @@ function renderPublicPage(): string {
         auto: false,
         timer: null,
       };
-      const SMS_TARGET_NUMBER = '9050505056';
+      const SMS_TARGET_NUMBER = '9057326917';
 
       const rowsEl = $("rows");
       const cardsEl = $("cards");
