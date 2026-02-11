@@ -5,6 +5,17 @@ import { config } from './config.js';
 import type { Db } from './db.js';
 import type { DecodeResult } from './types.js';
 
+interface DecodeContext {
+  snippet: string;
+  found: boolean;
+}
+
+const DEFAULT_ANALYSIS: DecodeResult = {
+  decoded_summary: '',
+  likely_acdc_reference: 'Unknown',
+  confidence_0_to_1: 0
+};
+
 const DEFAULT_STREAM_HEADERS = {
   userAgent:
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
@@ -17,6 +28,22 @@ function getStreamHeaders(): Record<string, string> {
     'User-Agent': config.streamUserAgent || DEFAULT_STREAM_HEADERS.userAgent,
     Referer: config.streamReferer || DEFAULT_STREAM_HEADERS.referer,
     Accept: config.streamAccept || DEFAULT_STREAM_HEADERS.accept
+  };
+}
+
+function extractScrambleContext(transcript: string): DecodeContext {
+  const words = transcript.trim() ? transcript.trim().split(/\s+/) : [];
+  const scrambleIndex = words.findIndex((word) => /\bscramble\b/i.test(word));
+
+  if (scrambleIndex === -1) {
+    return { snippet: '', found: false };
+  }
+
+  const start = Math.max(0, scrambleIndex - 20);
+  const end = Math.min(words.length, scrambleIndex + 21);
+  return {
+    snippet: words.slice(start, end).join(' '),
+    found: true
   };
 }
 
@@ -122,15 +149,43 @@ async function transcribe(audioPath: string): Promise<string> {
   });
 }
 
-async function decodeTranscript(transcript: string): Promise<DecodeResult> {
-  if (!config.openAiApiKey) {
-    return {
-      decoded_summary: 'OPENAI_API_KEY not set; decode skipped.',
-      likely_acdc_reference: 'Unknown',
-      confidence_0_to_1: 0
-    };
+async function decodeSnippet(snippet: string): Promise<string> {
+  const payload = {
+    model: config.openAiModel,
+    ...(config.decodeMaxTokens ? { max_tokens: config.decodeMaxTokens } : {}),
+    messages: [
+      {
+        role: 'user',
+        content:
+          'Decode the scrambled keyword in this paragraph related to an AC/DC contest. Return ONLY the decoded keyword in uppercase, no extra text.\n\n' +
+          snippet
+      }
+    ]
+  };
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.openAiApiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI decode failed: ${response.status} ${await response.text()}`);
   }
 
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OpenAI decode empty response');
+
+  return content.trim();
+}
+
+async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
   const payload = {
     model: config.openAiModel,
     ...(config.decodeMaxTokens ? { max_tokens: config.decodeMaxTokens } : {}),
@@ -184,14 +239,26 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
     await db.updateRun(runId, { status: 'running' });
     await recordAudio(audioPath);
     const transcript = await transcribe(audioPath);
-    const decoded = await decodeTranscript(transcript);
+    const context = extractScrambleContext(transcript);
+
+    let decodedSummary = "Keyword 'scramble' not found; decode skipped.";
+    let analysis = DEFAULT_ANALYSIS;
+
+    if (context.found) {
+      if (!config.openAiApiKey) {
+        decodedSummary = 'OPENAI_API_KEY not set; decode skipped.';
+      } else {
+        decodedSummary = await decodeSnippet(context.snippet);
+        analysis = await analyzeTranscript(transcript);
+      }
+    }
 
     await db.updateRun(runId, {
       status: 'done',
       transcript,
-      decoded_summary: decoded.decoded_summary,
-      likely_acdc_reference: decoded.likely_acdc_reference,
-      confidence: decoded.confidence_0_to_1,
+      decoded_summary: decodedSummary,
+      likely_acdc_reference: analysis.likely_acdc_reference,
+      confidence: analysis.confidence_0_to_1,
       error: null
     });
   } catch (error) {

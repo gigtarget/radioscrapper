@@ -49,8 +49,7 @@ function renderPublicPage(): string {
       .pill.pending { background: #f2f2f2; }
       .pill.done { background: #d8f6dd; }
       .pill.failed { background: #f9dddd; }
-      .expand { margin-left: 8px; border: none; background: transparent; color: #0068d7; cursor: pointer; }
-      .long-text { min-width: 220px; max-width: 420px; }
+      .long-text { min-width: 220px; max-width: 420px; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; max-height: 260px; overflow-y: auto; }
     </style>
   </head>
   <body>
@@ -74,11 +73,13 @@ function renderPublicPage(): string {
     <script>
       const runsBody = document.getElementById('runs-body');
 
-      function truncateWithToggle(text, max = 180) {
-        if (!text) return '';
-        if (text.length <= max) return text;
-        const short = text.slice(0, max) + '…';
-        return '<span class="truncated" data-full="' + encodeURIComponent(text) + '">' + short + '</span><button class="expand">expand</button>';
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
       }
 
       function renderStatus(status) {
@@ -86,19 +87,19 @@ function renderPublicPage(): string {
         let cls = 'pending';
         if (normalized === 'done') cls = 'done';
         else if (normalized === 'failed') cls = 'failed';
-        return '<span class="pill ' + cls + '">' + (status || 'pending') + '</span>';
+        return '<span class="pill ' + cls + '">' + escapeHtml(status || 'pending') + '</span>';
       }
 
       function runRow(run) {
         return '<tr>' +
-          '<td>' + (run.created_at_toronto || '') + '</td>' +
+          '<td>' + escapeHtml(run.created_at_toronto || '') + '</td>' +
           '<td>' + renderStatus(run.status) + '</td>' +
           '<td>' + (run.duration_seconds ?? '') + '</td>' +
-          '<td class="long-text">' + truncateWithToggle(run.transcript || '') + '</td>' +
-          '<td class="long-text">' + truncateWithToggle(run.decoded_summary || '') + '</td>' +
-          '<td>' + (run.likely_acdc_reference || '') + '</td>' +
+          '<td class="long-text">' + escapeHtml(run.transcript || '') + '</td>' +
+          '<td class="long-text">' + escapeHtml(run.decoded_summary || '') + '</td>' +
+          '<td>' + escapeHtml(run.likely_acdc_reference || '') + '</td>' +
           '<td>' + (run.confidence ?? '') + '</td>' +
-          '<td class="long-text">' + truncateWithToggle(run.error || '') + '</td>' +
+          '<td class="long-text">' + escapeHtml(run.error || '') + '</td>' +
         '</tr>';
       }
 
@@ -108,23 +109,6 @@ function renderPublicPage(): string {
         const runs = await response.json();
         runsBody.innerHTML = runs.map(runRow).join('');
       }
-
-      runsBody.addEventListener('click', (event) => {
-        const btn = event.target.closest('.expand');
-        if (!btn) return;
-
-        const span = btn.previousElementSibling;
-        if (!span || !span.classList.contains('truncated')) return;
-
-        const full = decodeURIComponent(span.dataset.full || '');
-        if (btn.textContent === 'expand') {
-          span.textContent = full;
-          btn.textContent = 'collapse';
-        } else {
-          span.textContent = full.slice(0, 180) + '…';
-          btn.textContent = 'expand';
-        }
-      });
 
       async function refreshLoop() {
         try {
