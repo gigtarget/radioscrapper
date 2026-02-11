@@ -172,6 +172,21 @@ input:focus-visible,
   color: var(--danger);
 }
 
+
+.sms-btn {
+  min-height: 30px;
+  padding: 0.32rem 0.6rem;
+  font-size: 0.78rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.muted-cell {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .history-head {
   display: flex;
   justify-content: space-between;

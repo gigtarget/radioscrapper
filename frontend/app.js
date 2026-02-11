@@ -8,6 +8,7 @@ const statusLine = document.getElementById('status-line');
 const apiBaseInput = document.getElementById('api-base');
 const apiKeyInput = document.getElementById('api-key');
 const publicLink = document.getElementById('public-link');
+const SMS_TARGET_NUMBER = '9050505056';
 
 function loadConfig() {
   const defaults = { apiBase: '', apiKey: '' };
@@ -79,6 +80,22 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+
+function buildSmsLink(run) {
+  const sourceText = (run.decoded_summary || run.transcript || '').trim();
+  if (!sourceText) return '';
+
+  const message = `AI Result: ${sourceText}`;
+  return `sms:${SMS_TARGET_NUMBER}?&body=${encodeURIComponent(message)}`;
+}
+
+function renderSmsAction(run) {
+  const smsLink = buildSmsLink(run);
+  if (!smsLink) return '<span class="muted-cell">No result</span>';
+
+  return `<a class="btn ghost sms-btn" href="${escapeHtml(smsLink)}">SMS Result</a>`;
+}
+
 function renderStatus(status) {
   const normalized = (status || '').toLowerCase();
   let cls = 'pending';
@@ -99,6 +116,7 @@ function runRow(run) {
       <td class="long-text">${escapeHtml(run.decoded_summary || '')}</td>
       <td>${escapeHtml(run.likely_acdc_reference || '')}</td>
       <td>${run.confidence ?? ''}</td>
+      <td>${renderSmsAction(run)}</td>
       <td class="long-text">${escapeHtml(run.error || '')}</td>
     </tr>
   `;
