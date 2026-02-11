@@ -29,4 +29,4 @@
 - Run creation endpoints return `503` while DB is not ready.
 - Scheduled cron runs log and skip until DB initialization succeeds.
 
-To change recording duration or run schedule, edit `backend/src/recording_settings.ts` or set `RECOD_SECONDS`/`TZ` env vars.
+To change recording duration or run schedule, edit `backend/src/recording_settings.ts` or set `RECORD_SECONDS` (or legacy `RECOD_SECONDS`), `DURATION_SECONDS`, and/or `TZ` env vars.
