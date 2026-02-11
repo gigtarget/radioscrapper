@@ -28,3 +28,5 @@
 - Postgres initialization runs in the background with retries (2s, 5s, 10s, 20s, then every 30s).
 - Run creation endpoints return `503` while DB is not ready.
 - Scheduled cron runs log and skip until DB initialization succeeds.
+
+To change recording duration or run schedule, edit `backend/src/recording_settings.ts` or set `RECOD_SECONDS`/`TZ` env vars.

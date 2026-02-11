@@ -8,6 +8,7 @@ import { createDb } from './db.js';
 import { InProcessQueue } from './jobQueue.js';
 import { executeRun } from './runner.js';
 import { generateRunId, withToronto } from './utils.js';
+import { RECORDING_SETTINGS } from './recording_settings.js';
 
 const app = express();
 const db = createDb();
@@ -292,20 +293,32 @@ async function main(): Promise<void> {
   console.log(`[config] DB URL source: ${config.databaseUrlSource} (${redactConnectionString(config.databaseUrl)})`);
   console.log(`[config] CORS_ORIGIN: ${config.corsOrigin || '(not set)'}`);
 
-  cron.schedule(
-    '59 7,10,15 * * *',
-    () => {
-      void enqueueRun('scheduled').catch((error) => {
-        if (error instanceof Error && error.message === 'DB_NOT_READY') {
-          console.warn('[cron] skipped scheduled run because database is not ready yet.');
-          return;
-        }
+  for (const runTime of RECORDING_SETTINGS.runTimes) {
+    const [hourPart, minutePart] = runTime.split(':');
+    const hour = Number(hourPart);
+    const minute = Number(minutePart);
+    if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+      console.warn(`[cron] skipping invalid run time: ${runTime}`);
+      continue;
+    }
 
-        console.error('[cron] failed to enqueue scheduled run', error);
-      });
-    },
-    { timezone: 'America/Toronto' }
-  );
+    const cronExpression = `0 ${minute} ${hour} * * *`;
+
+    cron.schedule(
+      cronExpression,
+      () => {
+        void enqueueRun('scheduled').catch((error) => {
+          if (error instanceof Error && error.message === 'DB_NOT_READY') {
+            console.warn('[cron] skipped scheduled run because database is not ready yet.');
+            return;
+          }
+
+          console.error('[cron] failed to enqueue scheduled run', error);
+        });
+      },
+      { timezone: RECORDING_SETTINGS.timezone }
+    );
+  }
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Backend listening on ${PORT}`);
