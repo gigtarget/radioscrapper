@@ -47,6 +47,15 @@ function extractScrambleContext(transcript: string): DecodeContext {
   };
 }
 
+
+function toSingleWordUpper(value: string): string {
+  return value
+    .trim()
+    .split(/\s+/)[0]
+    ?.replace(/[^A-Za-z0-9]/g, '')
+    .toUpperCase() || '';
+}
+
 function loadCookieString(): string {
   try {
     return fs.readFileSync(config.cookiePath, 'utf8').trim();
@@ -157,7 +166,7 @@ async function decodeSnippet(snippet: string): Promise<string> {
       {
         role: 'user',
         content:
-          'Decode the scrambled keyword in this paragraph related to an AC/DC contest. Return ONLY the decoded keyword in uppercase, no extra text.\n\n' +
+          'Decode the scrambled keyword in this paragraph related to an AC/DC contest. Return ONLY one uppercase word: the decoded keyword. No punctuation or extra text.\n\n' +
           snippet
       }
     ]
@@ -182,7 +191,7 @@ async function decodeSnippet(snippet: string): Promise<string> {
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('OpenAI decode empty response');
 
-  return content.trim();
+  return toSingleWordUpper(content);
 }
 
 async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
@@ -193,7 +202,7 @@ async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
       {
         role: 'system',
         content:
-          'You decode scrambled words from radio speech-to-text input. Do not summarize. Use the transcript directly, find scrambled words, decode them, and infer the AC/DC band-related answer. Return strict JSON with keys decoded_summary, likely_acdc_reference, confidence_0_to_1 (0..1).'
+          'You decode scrambled words from radio speech-to-text input. Do not summarize. Use the transcript directly, find scrambled words, decode them, and infer the AC/DC band-related answer. Return strict JSON with keys decoded_summary, likely_acdc_reference, confidence_0_to_1 (0..1). decoded_summary must be exactly one uppercase word. likely_acdc_reference must be exactly one uppercase word.'
       },
       {
         role: 'user',
@@ -226,8 +235,8 @@ async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
 
   const parsed = JSON.parse(content) as DecodeResult;
   return {
-    decoded_summary: parsed.decoded_summary || '',
-    likely_acdc_reference: parsed.likely_acdc_reference || 'Unknown',
+    decoded_summary: toSingleWordUpper(parsed.decoded_summary || ''),
+    likely_acdc_reference: toSingleWordUpper(parsed.likely_acdc_reference || '') || 'Unknown',
     confidence_0_to_1: Number(parsed.confidence_0_to_1 ?? 0)
   };
 }
