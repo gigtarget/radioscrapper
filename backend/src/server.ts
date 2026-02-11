@@ -43,16 +43,18 @@ function renderPublicPage(): string {
     <style>
       :root{
         color-scheme: dark;
-        --bg0:#070A12;
-        --bg1:#0A1030;
+        --bgTop:#0B1030;
+        --bgBottom:#050713;
+
         --card:#0E1636;
-        --card2:#0B1230;
         --border: rgba(140,160,255,.18);
         --text: #EAF0FF;
         --muted:#A7B3D6;
         --muted2:#7F8BB4;
+
         --brand:#7C5CFF;
         --brand2:#35D0FF;
+
         --ok:#35E08A;
         --warn:#FFD34D;
         --bad:#FF5C7A;
@@ -72,10 +74,11 @@ function renderPublicPage(): string {
         margin:0;
         font-family: var(--sans);
         color: var(--text);
-        background:
-          radial-gradient(900px 450px at 15% -10%, rgba(124,92,255,.35) 0%, transparent 60%),
-          radial-gradient(900px 450px at 85% 10%, rgba(53,208,255,.22) 0%, transparent 65%),
-          linear-gradient(180deg, var(--bg1), var(--bg0) 55%);
+
+        /* Single, clean, non-repeating background */
+        background: linear-gradient(180deg, var(--bgTop) 0%, var(--bgBottom) 70%);
+        background-repeat: no-repeat;
+        background-attachment: fixed;
         overflow-x:hidden;
       }
 
@@ -102,9 +105,7 @@ function renderPublicPage(): string {
       .logo{
         width:42px;height:42px;
         border-radius: 14px;
-        background:
-          radial-gradient(14px 14px at 30% 30%, rgba(255,255,255,.22) 0%, transparent 55%),
-          linear-gradient(135deg, rgba(124,92,255,.95), rgba(53,208,255,.95));
+        background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(53,208,255,.95));
         box-shadow: var(--shadow2);
         position:relative;
       }
@@ -129,12 +130,6 @@ function renderPublicPage(): string {
         font-size: 14px;
       }
 
-      .chiprow{
-        display:flex;
-        flex-wrap:wrap;
-        gap:10px;
-        margin-top: 12px;
-      }
       .chip{
         display:inline-flex;
         align-items:center;
@@ -148,68 +143,31 @@ function renderPublicPage(): string {
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
       }
-      .dot{
-        width:8px;height:8px;border-radius:999px;
-        background: rgba(255,255,255,.25);
-      }
-      .dot.ok{ background: var(--ok); }
-      .dot.bad{ background: var(--bad); }
-      .dot.warn{ background: var(--warn); }
 
       .card{
         margin-top: 16px;
         border-radius: var(--radius);
         border: 1px solid var(--border);
-        background:
-          radial-gradient(700px 220px at 10% 0%, rgba(124,92,255,.16) 0%, transparent 60%),
-          linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+        background: rgba(255,255,255,.03);
         box-shadow: var(--shadow);
         overflow:hidden;
       }
 
       .toolbar{
-        display:grid;
-        grid-template-columns: 1fr auto;
-        gap: 12px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
         padding: 16px 16px 12px;
         border-bottom: 1px solid rgba(140,160,255,.14);
         background: rgba(0,0,0,.10);
+        flex-wrap:wrap;
       }
 
-      .controls{
-        display:grid;
-        grid-template-columns: 1.4fr .7fr .7fr;
-        gap: 10px;
-      }
-
-      .field{
-        display:grid;
-        gap: 6px;
-      }
-      .label{
-        color: var(--muted2);
-        font-size: 12px;
-      }
-      input, select, button{
-        font: inherit;
-      }
-      input, select{
-        width:100%;
-        border-radius: 12px;
-        border: 1px solid rgba(140,160,255,.18);
-        background: rgba(10,16,48,.55);
-        color: var(--text);
-        padding: 10px 11px;
-        outline: none;
-      }
-      input::placeholder{ color: rgba(167,179,214,.6); }
-      input:focus, select:focus{ border-color: rgba(124,92,255,.55); box-shadow: 0 0 0 3px rgba(124,92,255,.15); }
-
-      .actions{
+      .lefttools{
         display:flex;
+        align-items:center;
         gap:10px;
-        align-items:end;
-        justify-content:flex-end;
         flex-wrap:wrap;
       }
 
@@ -230,10 +188,6 @@ function renderPublicPage(): string {
       }
       .btn:hover{ transform: translateY(-1px); background: rgba(255,255,255,.06); border-color: rgba(140,160,255,.26); }
       .btn:active{ transform: translateY(0px); }
-      .btn.primary{
-        background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(53,208,255,.85));
-        border-color: rgba(255,255,255,.18);
-      }
 
       .toggle{
         display:flex;
@@ -242,10 +196,11 @@ function renderPublicPage(): string {
         padding: 9px 11px;
         border-radius: 12px;
         border: 1px solid rgba(140,160,255,.18);
-        background: rgba(10,16,48,.55);
+        background: rgba(10,16,48,.35);
         min-height: 40px;
       }
       .toggle small{ color: var(--muted2); }
+
       .switch{
         width: 46px; height: 26px;
         border-radius: 999px;
@@ -274,7 +229,7 @@ function renderPublicPage(): string {
         gap:12px;
         flex-wrap:wrap;
         padding: 12px 16px 14px;
-        background: rgba(0,0,0,.08);
+        background: rgba(0,0,0,.06);
         border-bottom: 1px solid rgba(140,160,255,.14);
       }
       .stats{
@@ -311,11 +266,11 @@ function renderPublicPage(): string {
         color: var(--muted);
       }
 
-      /* Desktop table */
       .tablewrap{
         overflow:auto;
-        background: rgba(8,12,30,.55);
+        background: rgba(0,0,0,.08);
       }
+
       table{
         width:100%;
         min-width: 980px;
@@ -330,8 +285,6 @@ function renderPublicPage(): string {
         font-weight: 650;
         color: rgba(167,179,214,.92);
         background: rgba(11,18,48,.92);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
         border-bottom: 1px solid rgba(140,160,255,.16);
         padding: 12px 12px;
         white-space: nowrap;
@@ -342,9 +295,7 @@ function renderPublicPage(): string {
         vertical-align: top;
         color: rgba(234,240,255,.92);
       }
-      tbody tr:hover td{
-        background: rgba(255,255,255,.02);
-      }
+      tbody tr:hover td{ background: rgba(255,255,255,.02); }
 
       .statusPill{
         display:inline-flex;
@@ -435,7 +386,7 @@ function renderPublicPage(): string {
       .cards{
         display:none;
         padding: 12px 12px 16px;
-        background: rgba(8,12,30,.55);
+        background: rgba(0,0,0,.08);
       }
       .runCard{
         border-radius: var(--radius2);
@@ -475,15 +426,9 @@ function renderPublicPage(): string {
         background: rgba(0,0,0,.10);
       }
 
-      @media (max-width: 980px){
-        .toolbar{ grid-template-columns: 1fr; }
-        .actions{ justify-content:flex-start; }
-      }
-
       @media (max-width: 720px){
         .wrap{ width: min(1200px, calc(100% - 1.2rem)); }
         .top{ padding: 14px 12px 0; }
-        .controls{ grid-template-columns: 1fr; }
         table{ display:none; }
         .cards{ display:block; }
         .meta{ padding: 12px; }
@@ -500,48 +445,17 @@ function renderPublicPage(): string {
             <div class="logo" aria-hidden="true"></div>
             <div>
               <h1>GIANT FM AC/DC Decoder — Public History</h1>
-              <p class="subtitle">Read-only history. Auto-refresh available. Search, filter, and export runs.</p>
-              <div class="chiprow">
-                <div class="chip"><span class="dot ok"></span> Live from /runs</div>
-                <div class="chip"><span class="dot warn"></span> Refreshable</div>
-                <div class="chip"><span class="dot bad"></span> Errors shown with full detail</div>
-              </div>
+              <p class="subtitle">Read-only history. Tap to expand transcripts, decoded summaries, and errors.</p>
             </div>
           </div>
         </div>
 
-        <div class="chip" title="This page cannot trigger runs.">
-          <span class="dot"></span>
-          Read-only
-        </div>
+        <div class="chip" title="This page cannot trigger runs.">Read-only</div>
       </div>
 
       <section class="card" aria-label="Public history">
         <div class="toolbar">
-          <div class="controls">
-            <div class="field">
-              <div class="label">Search (transcript / decoded / error / ref)</div>
-              <input id="q" type="search" placeholder="e.g. ACDC, keyword, error 400, Toronto, etc." />
-            </div>
-            <div class="field">
-              <div class="label">Status</div>
-              <select id="status">
-                <option value="">All</option>
-                <option value="done">Done</option>
-                <option value="failed">Failed</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-            <div class="field">
-              <div class="label">Sort</div>
-              <select id="sort">
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="actions">
+          <div class="lefttools">
             <div class="toggle" title="Auto-refresh runs list">
               <div>
                 <div style="font-weight:650; font-size:13px;">Auto-refresh</div>
@@ -553,9 +467,11 @@ function renderPublicPage(): string {
             </div>
 
             <button id="refresh" class="btn">Refresh now</button>
-            <button id="csv" class="btn">Export CSV</button>
-            <button id="clear" class="btn">Clear filters</button>
-            <button id="topbtn" class="btn primary" title="Jump to top">Top</button>
+          </div>
+
+          <div class="rightmeta">
+            <span class="pill">Updated: <span id="updated" class="mono" style="margin-left:8px">—</span></span>
+            <span id="msg" class="muted">—</span>
           </div>
         </div>
 
@@ -565,10 +481,6 @@ function renderPublicPage(): string {
             <div class="stat"><b id="st_done">0</b><span>Done</span></div>
             <div class="stat"><b id="st_failed">0</b><span>Failed</span></div>
             <div class="stat"><b id="st_pending">0</b><span>Pending</span></div>
-          </div>
-          <div class="rightmeta">
-            <span class="pill">Updated: <span id="updated" class="mono" style="margin-left:8px">—</span></span>
-            <span id="msg" class="muted">—</span>
           </div>
         </div>
 
@@ -593,7 +505,7 @@ function renderPublicPage(): string {
         </div>
 
         <div class="foot">
-          Tips: tap any long cell to expand. Use search + status filter to quickly spot failures (example: “Unsupported parameter”).
+          Tip: tap any long cell to expand. Errors include full details for debugging.
         </div>
       </section>
     </div>
@@ -603,7 +515,6 @@ function renderPublicPage(): string {
 
       const state = {
         runs: [],
-        filtered: [],
         auto: false,
         timer: null,
       };
@@ -612,13 +523,7 @@ function renderPublicPage(): string {
       const cardsEl = $("cards");
       const msgEl = $("msg");
       const updatedEl = $("updated");
-      const qEl = $("q");
-      const statusEl = $("status");
-      const sortEl = $("sort");
       const refreshBtn = $("refresh");
-      const csvBtn = $("csv");
-      const clearBtn = $("clear");
-      const topBtn = $("topbtn");
 
       const autoSwitch = $("autoswitch");
       const autoTxt = $("autotxt");
@@ -689,11 +594,8 @@ function renderPublicPage(): string {
       }
 
       function card(run){
-        const cls = normalizeStatus(run.status);
         const ref = (run.likely_acdc_reference || '').trim() || '—';
         const dur = (run.duration_seconds ?? '') === '' ? '—' : String(run.duration_seconds);
-        const conf = Number(run.confidence);
-        const pct = Number.isFinite(conf) ? Math.max(0, Math.min(100, Math.round(conf * 100))) : null;
 
         return '<div class="runCard">' +
           '<div class="runHead">' +
@@ -715,50 +617,17 @@ function renderPublicPage(): string {
         '</div>';
       }
 
-      function applyFilters(){
-        const q = (qEl.value || '').trim().toLowerCase();
-        const st = (statusEl.value || '').trim().toLowerCase();
-        const sort = sortEl.value || 'newest';
-
-        let list = state.runs.slice();
-
-        if (st){
-          list = list.filter(r => normalizeStatus(r.status) === st);
-        }
-
-        if (q){
-          list = list.filter(r => {
-            const blob = [
-              r.created_at_toronto,
-              r.status,
-              r.transcript,
-              r.decoded_summary,
-              r.likely_acdc_reference,
-              r.error
-            ].join(' ').toLowerCase();
-            return blob.includes(q);
-          });
-        }
-
-        list.sort((a,b) => {
+      function render(){
+        const runs = state.runs.slice().sort((a,b) => {
           const ta = String(a.created_at_toronto || '');
           const tb = String(b.created_at_toronto || '');
-          if (sort === 'oldest') return ta.localeCompare(tb);
           return tb.localeCompare(ta);
         });
-
-        state.filtered = list;
-      }
-
-      function render(){
-        applyFilters();
-
-        const runs = state.filtered;
 
         rowsEl.innerHTML = runs.map(row).join('');
         cardsEl.innerHTML = runs.map(card).join('');
 
-        // stats from full dataset (not filtered)
+        // stats
         const all = state.runs;
         const done = all.filter(r => normalizeStatus(r.status) === 'done').length;
         const failed = all.filter(r => normalizeStatus(r.status) === 'failed').length;
@@ -769,7 +638,7 @@ function renderPublicPage(): string {
         $("st_failed").textContent = String(failed);
         $("st_pending").textContent = String(pending);
 
-        // attach copy handlers (event delegation)
+        // attach copy handlers
         document.querySelectorAll('[data-copy]').forEach(btn => {
           if (btn.__wired) return;
           btn.__wired = true;
@@ -790,7 +659,7 @@ function renderPublicPage(): string {
           });
         });
 
-        msgEl.textContent = runs.length ? (runs.length + ' shown') : 'No matches';
+        msgEl.textContent = runs.length ? (runs.length + ' runs') : 'No runs';
       }
 
       function nowStamp(){
@@ -828,62 +697,21 @@ function renderPublicPage(): string {
         }
       }
 
-      // UI events
-      qEl.addEventListener('input', () => render());
-      statusEl.addEventListener('change', () => render());
-      sortEl.addEventListener('change', () => render());
-
       refreshBtn.addEventListener('click', fetchRuns);
-      clearBtn.addEventListener('click', () => {
-        qEl.value = '';
-        statusEl.value = '';
-        sortEl.value = 'newest';
-        render();
-      });
 
-      csvBtn.addEventListener('click', () => {
-        const rows = state.filtered.length ? state.filtered : state.runs;
-        const cols = [
-          'created_at_toronto','status','duration_seconds','transcript','decoded_summary',
-          'likely_acdc_reference','confidence','error'
-        ];
-        const esc = (v) => {
-          const s = String(v ?? '');
-          if (/["\\n,]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
-          return s;
-        };
-        const csv = [cols.join(',')].concat(
-          rows.map(r => cols.map(c => esc(r[c])).join(','))
-        ).join('\\n');
-
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'giantfm_runs.csv';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      });
-
-      topBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-
-      function toggleAuto(){
-        setAuto(!state.auto);
-      }
+      function toggleAuto(){ setAuto(!state.auto); }
       autoSwitch.addEventListener('click', toggleAuto);
       autoSwitch.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAuto(); }
       });
 
-      // boot
       fetchRuns();
       setAuto(false);
     </script>
   </body>
 </html>`;
 }
+
 
 
 app.use(express.json());
