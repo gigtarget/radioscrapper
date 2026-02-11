@@ -1,6 +1,6 @@
 function parseRecordSeconds(value: string | undefined): number {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 360;
+  return Number.isFinite(parsed) ? parsed : 480;
 }
 
 export const RECORDING_SETTINGS = {
