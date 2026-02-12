@@ -123,6 +123,10 @@ function toSingleWordUpper(value: string): string {
   return single || UNKNOWN;
 }
 
+function isUnknownWord(value: string): boolean {
+  return toSingleWordUpper(value) === UNKNOWN;
+}
+
 function loadCookieString(): string {
   try {
     return fs.readFileSync(config.cookiePath, 'utf8').trim();
@@ -399,8 +403,10 @@ export async function analyzeExistingTranscript(transcript: string): Promise<{
   if (context.found && config.openAiApiKey) {
     try {
       const openAiDecoded = await decodeSnippet(context.snippet);
-      decodedSummary = openAiDecoded || decodedSummary;
-      analysisLogs.push(`OpenAI snippet decode returned ${decodedSummary}.`);
+      if (!isUnknownWord(openAiDecoded)) {
+        decodedSummary = openAiDecoded;
+      }
+      analysisLogs.push(`OpenAI snippet decode returned ${openAiDecoded}.`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       errorNote = `OpenAI decode failed; using local fallback if available. ${msg}`;
@@ -418,7 +424,11 @@ export async function analyzeExistingTranscript(transcript: string): Promise<{
   }
 
   decodedSummary = toSingleWordUpper(decodedSummary);
-  const likely = toSingleWordUpper(analysis.likely_acdc_reference || UNKNOWN);
+  let likely = toSingleWordUpper(analysis.likely_acdc_reference || UNKNOWN);
+  if (isUnknownWord(likely) && !isUnknownWord(decodedSummary)) {
+    likely = decodedSummary;
+    analysisLogs.push(`Likely fallback applied from decoded_summary=${decodedSummary}.`);
+  }
 
   const conf = Number(analysis.confidence_0_to_1 ?? 0);
   const confidence = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : 0;
