@@ -298,47 +298,7 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
     await recordAudio(audioPath);
 
     const transcript = await transcribe(audioPath);
-    const context = extractScrambleContext(transcript);
-
-    // Always store single-word output in DB
-    let decodedSummary: string = UNKNOWN;
-    let analysis: DecodeResult = { ...DEFAULT_ANALYSIS };
-    let errorNote: string | null = null;
-
-    // Local fallback: if we can extract hyphen-letters from snippet, decode locally
-    if (context.found) {
-      const letters = extractHyphenLetters(context.snippet);
-      if (letters) decodedSummary = localDecodeFromLetters(letters);
-    }
-
-    if (context.found && !config.openAiApiKey) {
-      errorNote = 'Scramble detected but OPENAI_API_KEY is not set (or empty after trim); OpenAI decode skipped.';
-    }
-
-    if (context.found && config.openAiApiKey) {
-      try {
-        // Prefer OpenAI decode, but never lose local fallback
-        const openAiDecoded = await decodeSnippet(context.snippet);
-        decodedSummary = openAiDecoded || decodedSummary;
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        errorNote = `OpenAI decode failed; using local fallback if available. ${msg}`;
-      }
-
-      try {
-        analysis = await analyzeTranscript(transcript);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        errorNote = (errorNote ? `${errorNote} | ` : '') + `OpenAI analysis failed. ${msg}`;
-      }
-    }
-
-    // Guarantee DB values are always single uppercase words
-    decodedSummary = toSingleWordUpper(decodedSummary);
-    const likely = toSingleWordUpper(analysis.likely_acdc_reference || UNKNOWN);
-
-    const conf = Number(analysis.confidence_0_to_1 ?? 0);
-    const confidence = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : 0;
+    const { decodedSummary, likely, confidence, errorNote } = await analyzeExistingTranscript(transcript);
 
     await db.updateRun(runId, {
       status: 'done',
@@ -354,4 +314,56 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
       error: error instanceof Error ? error.message : String(error)
     });
   }
+}
+
+export async function analyzeExistingTranscript(transcript: string): Promise<{
+  decodedSummary: string;
+  likely: string;
+  confidence: number;
+  errorNote: string | null;
+}> {
+  const context = extractScrambleContext(transcript);
+
+  let decodedSummary: string = UNKNOWN;
+  let analysis: DecodeResult = { ...DEFAULT_ANALYSIS };
+  let errorNote: string | null = null;
+
+  if (context.found) {
+    const letters = extractHyphenLetters(context.snippet);
+    if (letters) decodedSummary = localDecodeFromLetters(letters);
+  }
+
+  if (context.found && !config.openAiApiKey) {
+    errorNote = 'Scramble detected but OPENAI_API_KEY is not set (or empty after trim); OpenAI decode skipped.';
+  }
+
+  if (context.found && config.openAiApiKey) {
+    try {
+      const openAiDecoded = await decodeSnippet(context.snippet);
+      decodedSummary = openAiDecoded || decodedSummary;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errorNote = `OpenAI decode failed; using local fallback if available. ${msg}`;
+    }
+
+    try {
+      analysis = await analyzeTranscript(transcript);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errorNote = (errorNote ? `${errorNote} | ` : '') + `OpenAI analysis failed. ${msg}`;
+    }
+  }
+
+  decodedSummary = toSingleWordUpper(decodedSummary);
+  const likely = toSingleWordUpper(analysis.likely_acdc_reference || UNKNOWN);
+
+  const conf = Number(analysis.confidence_0_to_1 ?? 0);
+  const confidence = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : 0;
+
+  return {
+    decodedSummary,
+    likely,
+    confidence,
+    errorNote
+  };
 }
