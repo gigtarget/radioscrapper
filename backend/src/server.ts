@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { config, redactConnectionString } from './config.js';
 import { createDb } from './db.js';
 import { InProcessQueue } from './jobQueue.js';
-import { executeRun } from './runner.js';
+import { analyzeExistingTranscript, executeRun } from './runner.js';
 import { generateRunId, withToronto } from './utils.js';
 import { RECORDING_SETTINGS } from './recording_settings.js';
 
@@ -364,6 +364,31 @@ function renderPublicPage(): string {
         color: #FFD9E1;
       }
 
+      .retryBtn{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        border-radius: 10px;
+        padding: 6px 10px;
+        border: 1px solid rgba(140,160,255,.18);
+        background: rgba(255,255,255,.04);
+        color: var(--text);
+        text-decoration:none;
+        font-size: 12px;
+        font-weight: 650;
+        white-space: nowrap;
+        margin-left: 8px;
+      }
+      .retryBtn.ready{
+        border-color: rgba(255,211,77,.45);
+        background: rgba(255,211,77,.16);
+        color: #FFF4C7;
+      }
+      .retryBtn[disabled]{
+        opacity: .6;
+        cursor: not-allowed;
+      }
+
       /* Mobile cards */
       .cards{
         display:none;
@@ -489,6 +514,7 @@ function renderPublicPage(): string {
         timer: null,
       };
       const SMS_TARGET_NUMBER = '9057326917';
+      const retryingRuns = new Set();
 
       const rowsEl = $("rows");
       const cardsEl = $("cards");
@@ -540,14 +566,34 @@ function renderPublicPage(): string {
         '</details>';
       }
 
+      function isUnknown(value){
+        return String(value || '').trim().toUpperCase() === 'UNKNOWN';
+      }
+
+      function shouldHighlightRetry(run){
+        return String(run.status || '').toLowerCase() === 'done' && isUnknown(run.likely_acdc_reference);
+      }
+
       function smsAction(run){
         const sourceText = String(run.likely_acdc_reference || '').trim();
-        if (!sourceText) {
+        if (!sourceText || isUnknown(sourceText)) {
           return '<span class="smsBtn missing" aria-disabled="true">SMS Result</span>';
         }
 
         const href = 'sms:' + SMS_TARGET_NUMBER + '?body=' + encodeURIComponent(sourceText);
         return '<a class="smsBtn ready" href="' + escapeHtml(href) + '">SMS Result</a>';
+      }
+
+      function retryAction(run){
+        const id = String(run.id || '');
+        if (!id) return '';
+
+        const active = shouldHighlightRetry(run) && !retryingRuns.has(id);
+        if (!active) {
+          return '<button class="retryBtn" type="button" disabled>Retry OTC</button>';
+        }
+
+        return '<button class="retryBtn ready" type="button" data-retry="' + escapeHtml(id) + '">Retry OTC</button>';
       }
 
       function row(run){
@@ -558,7 +604,7 @@ function renderPublicPage(): string {
           '<td>' + detailsCell('Transcript', run.transcript, '—') + '</td>' +
           '<td>' + detailsCell('Decoded Summary', run.decoded_summary, '—') + '</td>' +
           '<td>' + escapeHtml(run.likely_acdc_reference || '') + '</td>' +
-          '<td>' + smsAction(run) + '</td>' +
+          '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + smsAction(run) + retryAction(run) + '</div></td>' +
           '<td>' + detailsCell('Error', run.error, '—') + '</td>' +
         '</tr>';
       }
@@ -582,7 +628,7 @@ function renderPublicPage(): string {
 
           '<div style="margin-top:10px;">' + detailsCell('Transcript', run.transcript, 'Transcript: —') + '</div>' +
           '<div style="margin-top:10px;">' + detailsCell('Decoded Summary', run.decoded_summary, 'Decoded: —') + '</div>' +
-          '<div style="margin-top:10px;">' + smsAction(run) + '</div>' +
+          '<div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + smsAction(run) + retryAction(run) + '</div>' +
           '<div style="margin-top:10px;">' + detailsCell('Error', run.error, 'Error: —') + '</div>' +
         '</div>';
       }
@@ -614,6 +660,35 @@ function renderPublicPage(): string {
             }catch{
               btn.textContent = 'No clipboard';
               setTimeout(() => btn.textContent = 'Copy', 900);
+            }
+          });
+        });
+
+        document.querySelectorAll('[data-retry]').forEach(btn => {
+          if (btn.__wiredRetry) return;
+          btn.__wiredRetry = true;
+          btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const id = btn.getAttribute('data-retry');
+            if (!id || retryingRuns.has(id)) return;
+
+            retryingRuns.add(id);
+            btn.setAttribute('disabled', 'disabled');
+            const originalText = btn.textContent;
+            btn.textContent = 'Retrying...';
+
+            try {
+              const res = await fetch('/runs/' + encodeURIComponent(id) + '/retry', { method: 'POST' });
+              if (!res.ok) {
+                throw new Error(await res.text());
+              }
+              await fetchRuns();
+            } catch (err) {
+              console.error(err);
+              msgEl.textContent = 'Retry failed';
+              retryingRuns.delete(id);
+              btn.removeAttribute('disabled');
+              btn.textContent = originalText || 'Retry OTC';
             }
           });
         });
@@ -817,6 +892,46 @@ app.get('/runs/:id', async (req, res) => {
   const run = await db.getRun(id);
   if (!run) return res.status(404).json({ error: 'Not found' });
   res.json(withToronto(run));
+});
+
+app.post('/runs/:id/retry', async (req, res) => {
+  const id = z.string().parse(req.params.id);
+  const run = await db.getRun(id);
+
+  if (!run) {
+    return res.status(404).json({ error: 'Run not found' });
+  }
+
+  const transcript = String(run.transcript || '').trim();
+  if (!transcript) {
+    return res.status(400).json({ error: 'Cannot retry without transcript' });
+  }
+
+  try {
+    await db.updateRun(id, { status: 'running' });
+    const { decodedSummary, likely, confidence, errorNote } = await analyzeExistingTranscript(transcript);
+
+    await db.updateRun(id, {
+      status: 'done',
+      decoded_summary: decodedSummary,
+      likely_acdc_reference: likely,
+      confidence,
+      error: errorNote
+    });
+
+    const updated = await db.getRun(id);
+    if (!updated) {
+      return res.status(500).json({ error: 'Run updated but not found' });
+    }
+
+    return res.json(withToronto(updated));
+  } catch (error) {
+    await db.updateRun(id, {
+      status: 'failed',
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'Retry failed' });
+  }
 });
 
 async function main(): Promise<void> {
