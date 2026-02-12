@@ -572,7 +572,8 @@ function renderPublicPage(): string {
       }
 
       function shouldHighlightRetry(run){
-        return String(run.status || '').toLowerCase() === 'done' && isUnknown(run.likely_acdc_reference);
+        return String(run.status || '').toLowerCase() === 'done'
+          && String(run.transcript || '').trim().length > 10;
       }
 
       function smsAction(run){
@@ -589,9 +590,15 @@ function renderPublicPage(): string {
         const id = String(run.id || '');
         if (!id) return '';
 
-        const active = shouldHighlightRetry(run) && !retryingRuns.has(id);
-        if (!active) {
+        const eligible = shouldHighlightRetry(run);
+        const active = eligible && !retryingRuns.has(id);
+
+        if (!eligible) {
           return '<button class="retryBtn" type="button" disabled>Retry OTC</button>';
+        }
+
+        if (!active) {
+          return '<button class="retryBtn" type="button" disabled>Retrying...</button>';
         }
 
         return '<button class="retryBtn ready" type="button" data-retry="' + escapeHtml(id) + '">Retry OTC</button>';
