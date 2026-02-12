@@ -10,9 +10,11 @@ interface DecodeContext {
   found: boolean;
 }
 
+const UNKNOWN = 'UNKNOWN';
+
 const DEFAULT_ANALYSIS: DecodeResult = {
-  decoded_summary: '',
-  likely_acdc_reference: 'Unknown',
+  decoded_summary: UNKNOWN,
+  likely_acdc_reference: UNKNOWN,
   confidence_0_to_1: 0
 };
 
@@ -35,25 +37,26 @@ function extractScrambleContext(transcript: string): DecodeContext {
   const words = transcript.trim() ? transcript.trim().split(/\s+/) : [];
   const scrambleIndex = words.findIndex((word) => /\bscramble\b/i.test(word));
 
-  if (scrambleIndex === -1) {
-    return { snippet: '', found: false };
-  }
+  if (scrambleIndex === -1) return { snippet: '', found: false };
 
   const start = Math.max(0, scrambleIndex - 20);
   const end = Math.min(words.length, scrambleIndex + 21);
+
   return {
     snippet: words.slice(start, end).join(' '),
     found: true
   };
 }
 
-
 function toSingleWordUpper(value: string): string {
-  return value
-    .trim()
-    .split(/\s+/)[0]
-    ?.replace(/[^A-Za-z0-9]/g, '')
-    .toUpperCase() || '';
+  const single =
+    value
+      .trim()
+      .split(/\s+/)[0]
+      ?.replace(/[^A-Za-z0-9]/g, '')
+      .toUpperCase() || '';
+
+  return single || UNKNOWN;
 }
 
 function loadCookieString(): string {
@@ -111,6 +114,7 @@ async function recordAudio(audioPath: string): Promise<void> {
   fs.mkdirSync(path.dirname(audioPath), { recursive: true });
   const cookie = await refreshCookieJar();
   const headers = getStreamHeaders();
+
   const headerLines = [
     `User-Agent: ${headers['User-Agent']}`,
     `Referer: ${headers.Referer}`,
@@ -139,8 +143,12 @@ async function recordAudio(audioPath: string): Promise<void> {
 
 async function transcribe(audioPath: string): Promise<string> {
   const scriptPath = path.join(process.cwd(), 'scripts', 'transcribe.py');
+
   return new Promise((resolve, reject) => {
-    const child = spawn(config.pythonBin, [scriptPath, audioPath], { cwd: path.join(process.cwd()) });
+    const child = spawn(config.pythonBin, [scriptPath, audioPath], {
+      cwd: path.join(process.cwd())
+    });
+
     let out = '';
     let err = '';
 
@@ -188,8 +196,9 @@ async function decodeSnippet(snippet: string): Promise<string> {
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
+
   const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('OpenAI decode empty response');
+  if (!content) return UNKNOWN;
 
   return toSingleWordUpper(content);
 }
@@ -209,9 +218,7 @@ async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
         content: `Get the scrambled words from this input, try to decode them, and provide the AC/DC band-related answer. Input: ${transcript}`
       }
     ],
-    response_format: {
-      type: 'json_object'
-    }
+    response_format: { type: 'json_object' }
   };
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -230,14 +237,22 @@ async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('OpenAI decode empty response');
 
-  const parsed = JSON.parse(content) as DecodeResult;
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) return { ...DEFAULT_ANALYSIS };
+
+  // Hardening: if JSON parse fails, return defaults (prevents run from failing)
+  let parsed: DecodeResult | null = null;
+  try {
+    parsed = JSON.parse(content) as DecodeResult;
+  } catch {
+    parsed = null;
+  }
+
   return {
-    decoded_summary: toSingleWordUpper(parsed.decoded_summary || ''),
-    likely_acdc_reference: toSingleWordUpper(parsed.likely_acdc_reference || '') || 'Unknown',
-    confidence_0_to_1: Number(parsed.confidence_0_to_1 ?? 0)
+    decoded_summary: toSingleWordUpper(parsed?.decoded_summary || UNKNOWN),
+    likely_acdc_reference: toSingleWordUpper(parsed?.likely_acdc_reference || UNKNOWN),
+    confidence_0_to_1: Number(parsed?.confidence_0_to_1 ?? 0)
   };
 }
 
@@ -246,28 +261,34 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
 
   try {
     await db.updateRun(runId, { status: 'running' });
+
     await recordAudio(audioPath);
+
     const transcript = await transcribe(audioPath);
     const context = extractScrambleContext(transcript);
 
-    let decodedSummary = "Keyword 'scramble' not found; decode skipped.";
-    let analysis = DEFAULT_ANALYSIS;
+    // Always store single-word output in DB
+    let decodedSummary: string = UNKNOWN;
+    let analysis: DecodeResult = { ...DEFAULT_ANALYSIS };
 
-    if (context.found) {
-      if (!config.openAiApiKey) {
-        decodedSummary = 'OPENAI_API_KEY not set; decode skipped.';
-      } else {
-        decodedSummary = await decodeSnippet(context.snippet);
-        analysis = await analyzeTranscript(transcript);
-      }
+    if (context.found && config.openAiApiKey) {
+      decodedSummary = await decodeSnippet(context.snippet);
+      analysis = await analyzeTranscript(transcript);
     }
+
+    // Guarantee DB values are always single uppercase words
+    decodedSummary = toSingleWordUpper(decodedSummary);
+    const likely = toSingleWordUpper(analysis.likely_acdc_reference || UNKNOWN);
+
+    const conf = Number(analysis.confidence_0_to_1 ?? 0);
+    const confidence = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : 0;
 
     await db.updateRun(runId, {
       status: 'done',
       transcript,
       decoded_summary: decodedSummary,
-      likely_acdc_reference: analysis.likely_acdc_reference,
-      confidence: analysis.confidence_0_to_1,
+      likely_acdc_reference: likely,
+      confidence,
       error: null
     });
   } catch (error) {
