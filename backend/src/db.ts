@@ -34,9 +34,12 @@ class PostgresDb implements Db {
         decoded_summary TEXT,
         likely_acdc_reference TEXT,
         confidence DOUBLE PRECISION,
-        error TEXT
+        error TEXT,
+        run_logs TEXT
       );
     `);
+
+      await this.pool.query(`ALTER TABLE runs ADD COLUMN IF NOT EXISTS run_logs TEXT;`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const code =

@@ -118,6 +118,7 @@ function runRow(run) {
       <td>${run.confidence ?? ''}</td>
       <td>${renderSmsAction(run)}</td>
       <td class="long-text">${escapeHtml(run.error || '')}</td>
+      <td class="long-text">${escapeHtml(run.run_logs || '')}</td>
     </tr>
   `;
 }

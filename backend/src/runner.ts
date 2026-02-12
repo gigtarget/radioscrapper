@@ -10,6 +10,12 @@ interface DecodeContext {
   found: boolean;
 }
 
+interface RunLogger {
+  info(message: string): void;
+  error(message: string): void;
+  flushToDb(): Promise<void>;
+}
+
 const UNKNOWN = 'UNKNOWN';
 
 const DEFAULT_ANALYSIS: DecodeResult = {
@@ -30,6 +36,30 @@ function getStreamHeaders(): Record<string, string> {
     'User-Agent': config.streamUserAgent || DEFAULT_STREAM_HEADERS.userAgent,
     Referer: config.streamReferer || DEFAULT_STREAM_HEADERS.referer,
     Accept: config.streamAccept || DEFAULT_STREAM_HEADERS.accept
+  };
+}
+
+function timestamp(): string {
+  return new Date().toISOString();
+}
+
+function createRunLogger(db: Db, runId: string): RunLogger {
+  let logs: string[] = [];
+
+  const append = (level: 'INFO' | 'ERROR', message: string): void => {
+    const line = `[${timestamp()}] [${level}] ${message}`;
+    logs.push(line);
+    if (logs.length > 400) logs = logs.slice(-400);
+    if (level === 'ERROR') console.error(`[run:${runId}] ${message}`);
+    else console.log(`[run:${runId}] ${message}`);
+  };
+
+  return {
+    info(message: string) { append('INFO', message); },
+    error(message: string) { append('ERROR', message); },
+    async flushToDb() {
+      await db.updateRun(runId, { run_logs: logs.join('\n') });
+    }
   };
 }
 
@@ -291,14 +321,23 @@ async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
 
 export async function executeRun(db: Db, runId: string): Promise<void> {
   const audioPath = path.join(config.audioDir, `${runId}.m4a`);
+  const logger = createRunLogger(db, runId);
 
   try {
-    await db.updateRun(runId, { status: 'running' });
+    logger.info('Run started.');
+    await db.updateRun(runId, { status: 'running', run_logs: '' });
 
+    logger.info(`Recording audio from stream for ${config.durationSeconds}s.`);
     await recordAudio(audioPath);
+    logger.info(`Recording completed: ${audioPath}`);
 
+    logger.info('Starting transcription.');
     const transcript = await transcribe(audioPath);
-    const { decodedSummary, likely, confidence, errorNote } = await analyzeExistingTranscript(transcript);
+    logger.info(`Transcription completed. Characters=${transcript.length}`);
+
+    logger.info('Starting transcript analysis.');
+    const { decodedSummary, likely, confidence, errorNote, analysisLogs } = await analyzeExistingTranscript(transcript);
+    for (const line of analysisLogs) logger.info(line);
 
     await db.updateRun(runId, {
       status: 'done',
@@ -308,11 +347,21 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
       confidence,
       error: errorNote
     });
+
+    if (!likely || likely === UNKNOWN) {
+      logger.error('Final likely AC/DC reference is UNKNOWN. Retry may help if transcript quality is poor.');
+    }
+
+    logger.info(`Run finished with decoded_summary=${decodedSummary}, likely_acdc_reference=${likely}, confidence=${confidence}.`);
+    await logger.flushToDb();
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(`Run failed: ${message}`);
     await db.updateRun(runId, {
       status: 'failed',
-      error: error instanceof Error ? error.message : String(error)
+      error: message
     });
+    await logger.flushToDb();
   }
 }
 
@@ -321,36 +370,50 @@ export async function analyzeExistingTranscript(transcript: string): Promise<{
   likely: string;
   confidence: number;
   errorNote: string | null;
+  analysisLogs: string[];
 }> {
   const context = extractScrambleContext(transcript);
 
   let decodedSummary: string = UNKNOWN;
   let analysis: DecodeResult = { ...DEFAULT_ANALYSIS };
   let errorNote: string | null = null;
+  const analysisLogs: string[] = [];
+
+  analysisLogs.push(`Scramble context found: ${context.found}`);
 
   if (context.found) {
     const letters = extractHyphenLetters(context.snippet);
-    if (letters) decodedSummary = localDecodeFromLetters(letters);
+    if (letters) {
+      decodedSummary = localDecodeFromLetters(letters);
+      analysisLogs.push(`Local letter decode candidate=${decodedSummary} from letters=${letters}`);
+    } else {
+      analysisLogs.push('No hyphen-letter pattern found for local decode.');
+    }
   }
 
   if (context.found && !config.openAiApiKey) {
     errorNote = 'Scramble detected but OPENAI_API_KEY is not set (or empty after trim); OpenAI decode skipped.';
+    analysisLogs.push('OpenAI decode skipped because OPENAI_API_KEY is missing.');
   }
 
   if (context.found && config.openAiApiKey) {
     try {
       const openAiDecoded = await decodeSnippet(context.snippet);
       decodedSummary = openAiDecoded || decodedSummary;
+      analysisLogs.push(`OpenAI snippet decode returned ${decodedSummary}.`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       errorNote = `OpenAI decode failed; using local fallback if available. ${msg}`;
+      analysisLogs.push(`OpenAI snippet decode failed: ${msg}`);
     }
 
     try {
       analysis = await analyzeTranscript(transcript);
+      analysisLogs.push(`OpenAI full analysis likely=${analysis.likely_acdc_reference} confidence=${analysis.confidence_0_to_1}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       errorNote = (errorNote ? `${errorNote} | ` : '') + `OpenAI analysis failed. ${msg}`;
+      analysisLogs.push(`OpenAI full analysis failed: ${msg}`);
     }
   }
 
@@ -360,10 +423,13 @@ export async function analyzeExistingTranscript(transcript: string): Promise<{
   const conf = Number(analysis.confidence_0_to_1 ?? 0);
   const confidence = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : 0;
 
+  analysisLogs.push(`Final normalized values decoded_summary=${decodedSummary}, likely=${likely}, confidence=${confidence}`);
+
   return {
     decodedSummary,
     likely,
     confidence,
-    errorNote
+    errorNote,
+    analysisLogs
   };
 }
