@@ -35,7 +35,18 @@ function getStreamHeaders(): Record<string, string> {
 
 function extractScrambleContext(transcript: string): DecodeContext {
   const words = transcript.trim() ? transcript.trim().split(/\s+/) : [];
-  const scrambleIndex = words.findIndex((word) => /\bscramble\b/i.test(word));
+
+  if (!words.length) return { snippet: '', found: false };
+
+  const cluePatterns = [
+    /\bscrambl(?:e|ed|ing)\b/i,
+    /\bdescrambl(?:e|ed|ing)?\b/i,
+    /\bunscrambl(?:e|ed|ing)?\b/i,
+    /\bkeyword\b/i,
+    /\b(?:[a-zA-Z]-){2,}[a-zA-Z]\b/
+  ];
+
+  const scrambleIndex = words.findIndex((word) => cluePatterns.some((pattern) => pattern.test(word)));
 
   if (scrambleIndex === -1) return { snippet: '', found: false };
 
