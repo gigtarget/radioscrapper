@@ -127,6 +127,23 @@ function isUnknownWord(value: string): boolean {
   return toSingleWordUpper(value) === UNKNOWN;
 }
 
+function parseAnalysisJson(content: string): DecodeResult | null {
+  const trimmed = content.trim();
+
+  try {
+    return JSON.parse(trimmed) as DecodeResult;
+  } catch {
+    // Some model responses wrap JSON in prose/code fences; extract the first JSON object.
+    const objectMatch = trimmed.match(/\{[\s\S]*\}/);
+    if (!objectMatch) return null;
+    try {
+      return JSON.parse(objectMatch[0]) as DecodeResult;
+    } catch {
+      return null;
+    }
+  }
+}
+
 function loadCookieString(): string {
   try {
     return fs.readFileSync(config.cookiePath, 'utf8').trim();
@@ -309,12 +326,7 @@ async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
   if (!content) return { ...DEFAULT_ANALYSIS };
 
   // Hardening: if JSON parse fails, return defaults (prevents run from failing)
-  let parsed: DecodeResult | null = null;
-  try {
-    parsed = JSON.parse(content) as DecodeResult;
-  } catch {
-    parsed = null;
-  }
+  const parsed = parseAnalysisJson(content);
 
   return {
     decoded_summary: toSingleWordUpper(parsed?.decoded_summary || UNKNOWN),
@@ -424,6 +436,12 @@ export async function analyzeExistingTranscript(transcript: string): Promise<{
   }
 
   decodedSummary = toSingleWordUpper(decodedSummary);
+  const openAiDecodedSummary = toSingleWordUpper(analysis.decoded_summary || UNKNOWN);
+  if (isUnknownWord(decodedSummary) && !isUnknownWord(openAiDecodedSummary)) {
+    decodedSummary = openAiDecodedSummary;
+    analysisLogs.push(`decoded_summary fallback applied from full analysis=${openAiDecodedSummary}.`);
+  }
+
   let likely = toSingleWordUpper(analysis.likely_acdc_reference || UNKNOWN);
   if (isUnknownWord(likely) && !isUnknownWord(decodedSummary)) {
     likely = decodedSummary;
