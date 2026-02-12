@@ -491,6 +491,7 @@ function renderPublicPage(): string {
                 <th>Likely AC/DC Ref</th>
                 <th>SMS</th>
                 <th>Error</th>
+                <th>Logs</th>
               </tr>
             </thead>
             <tbody id="rows"></tbody>
@@ -500,7 +501,7 @@ function renderPublicPage(): string {
         </div>
 
         <div class="foot">
-          Tip: tap any long cell to expand. Errors include full details for debugging.
+          Tip: tap any long cell to expand. Errors and logs include full details for debugging.
         </div>
       </section>
     </div>
@@ -606,6 +607,7 @@ function renderPublicPage(): string {
           '<td>' + escapeHtml(run.likely_acdc_reference || '') + '</td>' +
           '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + smsAction(run) + retryAction(run) + '</div></td>' +
           '<td>' + detailsCell('Error', run.error, '—') + '</td>' +
+          '<td>' + detailsCell('Logs', run.run_logs, '—') + '</td>' +
         '</tr>';
       }
 
@@ -630,6 +632,7 @@ function renderPublicPage(): string {
           '<div style="margin-top:10px;">' + detailsCell('Decoded Summary', run.decoded_summary, 'Decoded: —') + '</div>' +
           '<div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + smsAction(run) + retryAction(run) + '</div>' +
           '<div style="margin-top:10px;">' + detailsCell('Error', run.error, 'Error: —') + '</div>' +
+          '<div style="margin-top:10px;">' + detailsCell('Logs', run.run_logs, 'Logs: —') + '</div>' +
         '</div>';
       }
 
@@ -907,16 +910,36 @@ app.post('/runs/:id/retry', async (req, res) => {
     return res.status(400).json({ error: 'Cannot retry without transcript' });
   }
 
+  const retryLogs: string[] = [];
+  const addRetryLog = (message: string): void => {
+    const line = `[${new Date().toISOString()}] [RETRY] ${message}`;
+    retryLogs.push(line);
+    console.log(`[run:${id}] ${message}`);
+  };
+
   try {
+    addRetryLog('Manual retry requested.');
     await db.updateRun(id, { status: 'running' });
-    const { decodedSummary, likely, confidence, errorNote } = await analyzeExistingTranscript(transcript);
+    const { decodedSummary, likely, confidence, errorNote, analysisLogs } = await analyzeExistingTranscript(transcript);
+    for (const line of analysisLogs) {
+      addRetryLog(line);
+    }
+
+    let finalError = errorNote;
+    if (String(likely || '').trim().toUpperCase() === 'UNKNOWN') {
+      const unknownMessage =
+        'Retry completed but final likely AC/DC reference is still UNKNOWN. Check transcript/logs and consider increasing recording duration or improving source audio quality.';
+      finalError = finalError ? `${finalError} | ${unknownMessage}` : unknownMessage;
+      addRetryLog(unknownMessage);
+    }
 
     await db.updateRun(id, {
       status: 'done',
       decoded_summary: decodedSummary,
       likely_acdc_reference: likely,
       confidence,
-      error: errorNote
+      error: finalError,
+      run_logs: [String(run.run_logs || '').trim(), retryLogs.join('\n')].filter(Boolean).join('\n')
     });
 
     const updated = await db.getRun(id);
@@ -926,11 +949,14 @@ app.post('/runs/:id/retry', async (req, res) => {
 
     return res.json(withToronto(updated));
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    addRetryLog(`Retry failed: ${message}`);
     await db.updateRun(id, {
       status: 'failed',
-      error: error instanceof Error ? error.message : String(error)
+      error: message,
+      run_logs: [String(run.run_logs || '').trim(), retryLogs.join('\n')].filter(Boolean).join('\n')
     });
-    return res.status(500).json({ error: error instanceof Error ? error.message : 'Retry failed' });
+    return res.status(500).json({ error: message || 'Retry failed' });
   }
 });
 

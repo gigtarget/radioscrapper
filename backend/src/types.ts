@@ -10,6 +10,7 @@ export interface RunRecord {
   likely_acdc_reference: string | null;
   confidence: number | null;
   error: string | null;
+  run_logs: string | null;
 }
 
 export interface RunResponse extends RunRecord {
