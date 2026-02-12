@@ -161,7 +161,7 @@ async function transcribe(audioPath: string): Promise<string> {
 async function decodeSnippet(snippet: string): Promise<string> {
   const payload = {
     model: config.openAiModel,
-    ...(config.decodeMaxTokens ? { max_tokens: config.decodeMaxTokens } : {}),
+    ...(config.decodeMaxTokens ? { max_completion_tokens: config.decodeMaxTokens } : {}),
     messages: [
       {
         role: 'user',
@@ -197,7 +197,7 @@ async function decodeSnippet(snippet: string): Promise<string> {
 async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
   const payload = {
     model: config.openAiModel,
-    ...(config.decodeMaxTokens ? { max_tokens: config.decodeMaxTokens } : {}),
+    ...(config.decodeMaxTokens ? { max_completion_tokens: config.decodeMaxTokens } : {}),
     messages: [
       {
         role: 'system',
