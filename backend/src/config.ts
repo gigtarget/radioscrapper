@@ -77,7 +77,7 @@ export const config = {
   databaseUrlSource: dbUrl.source,
   audioDir: process.env.AUDIO_DIR || '/data/audio',
   cookiePath: process.env.COOKIE_JAR_PATH || process.env.COOKIE_PATH || '/data/cookies.txt',
-  openAiApiKey: process.env.OPENAI_API_KEY || '',
+  openAiApiKey: (process.env.OPENAI_API_KEY || '').trim(),
   openAiModel: process.env.DECODE_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini',
   decodeMaxTokens: parseOptionalNumber(process.env.DECODE_MAX_TOKENS),
   transcribeMode: process.env.TRANSCRIBE_MODE || '',

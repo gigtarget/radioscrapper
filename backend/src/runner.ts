@@ -40,7 +40,7 @@ function extractScrambleContext(transcript: string): DecodeContext {
 
   const cluePatterns = [
     /\bscrambl(?:e|ed|ing)\b/i,
-    /\bdescrambl(?:e|ed|ing)?\b/i,
+    /\bde[- ]?scrambl(?:e|ed|ing)?\b/i,
     /\bunscrambl(?:e|ed|ing)?\b/i,
     /\bkeyword\b/i,
     /\b(?:[a-zA-Z]-){2,}[a-zA-Z]\b/
@@ -57,6 +57,29 @@ function extractScrambleContext(transcript: string): DecodeContext {
     snippet: words.slice(start, end).join(' '),
     found: true
   };
+}
+
+function extractHyphenLetters(text: string): string | null {
+  // Matches "S-O-I-E-R" or "S O I E R" or "S-O-I-E-R," etc.
+  const m = text.match(/\b([A-Za-z](?:[-\s][A-Za-z]){2,})\b/);
+  if (!m) return null;
+  const letters = m[1].replace(/[^A-Za-z]/g, '').toUpperCase();
+  return letters.length >= 3 ? letters : null;
+}
+
+function sortLetters(s: string): string {
+  return s.split('').sort().join('');
+}
+
+function localDecodeFromLetters(letters: string): string {
+  // Small AC/DC-related candidate list (expand anytime)
+  const candidates = [
+    'ROSIE', 'ANGUS', 'ACDC', 'HIGHWAY', 'HELLS', 'BELLS', 'THUNDER',
+    'BACK', 'BLACK', 'SHOOK', 'TNT'
+  ];
+  const key = sortLetters(letters);
+  const hit = candidates.find((w) => sortLetters(w) === key);
+  return hit ? hit.toUpperCase() : UNKNOWN;
 }
 
 function toSingleWordUpper(value: string): string {
@@ -228,8 +251,7 @@ async function analyzeTranscript(transcript: string): Promise<DecodeResult> {
         role: 'user',
         content: `Get the scrambled words from this input, try to decode them, and provide the AC/DC band-related answer. Input: ${transcript}`
       }
-    ],
-    response_format: { type: 'json_object' }
+    ]
   };
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -281,10 +303,34 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
     // Always store single-word output in DB
     let decodedSummary: string = UNKNOWN;
     let analysis: DecodeResult = { ...DEFAULT_ANALYSIS };
+    let errorNote: string | null = null;
+
+    // Local fallback: if we can extract hyphen-letters from snippet, decode locally
+    if (context.found) {
+      const letters = extractHyphenLetters(context.snippet);
+      if (letters) decodedSummary = localDecodeFromLetters(letters);
+    }
+
+    if (context.found && !config.openAiApiKey) {
+      errorNote = 'Scramble detected but OPENAI_API_KEY is not set (or empty after trim); OpenAI decode skipped.';
+    }
 
     if (context.found && config.openAiApiKey) {
-      decodedSummary = await decodeSnippet(context.snippet);
-      analysis = await analyzeTranscript(transcript);
+      try {
+        // Prefer OpenAI decode, but never lose local fallback
+        const openAiDecoded = await decodeSnippet(context.snippet);
+        decodedSummary = openAiDecoded || decodedSummary;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errorNote = `OpenAI decode failed; using local fallback if available. ${msg}`;
+      }
+
+      try {
+        analysis = await analyzeTranscript(transcript);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errorNote = (errorNote ? `${errorNote} | ` : '') + `OpenAI analysis failed. ${msg}`;
+      }
     }
 
     // Guarantee DB values are always single uppercase words
@@ -300,7 +346,7 @@ export async function executeRun(db: Db, runId: string): Promise<void> {
       decoded_summary: decodedSummary,
       likely_acdc_reference: likely,
       confidence,
-      error: null
+      error: errorNote
     });
   } catch (error) {
     await db.updateRun(runId, {
